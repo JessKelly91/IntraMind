@@ -1,3 +1,9 @@
 [submodule "vector-db-service"]
 	path = vector-db-service
 	url = https://github.com/JessKelly91/vector-db-service.git
+[submodule "ai-agent"]
+	path = ai-agent
+	url = https://github.com/JessKelly91/intramind-ai-agent.git
+[submodule "api-gateway"]
+	path = api-gateway
+	url = https://github.com/JessKelly91/intramind-api-gateway.git
