@@ -271,7 +271,7 @@ IntraMind/                           (Main Platform - This Repo)
   - [x] Unit tests for documents endpoints (xUnit, FluentAssertions, Moq)
   - [x] Unit tests for search endpoints (xUnit, FluentAssertions, Moq) 
   - [x] Unit tests for health endpoints (xUnit, FluentAssertions, Moq)
-  - [ ] Integration tests with gRPC service
+  - [x] Integration tests with gRPC service
   - [x] Test project structure and configuration
 
 **Deliverable:** ✅ Complete REST API Gateway with full endpoint coverage
