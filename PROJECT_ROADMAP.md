@@ -27,18 +27,20 @@ IntraMind/                           (Main Platform - This Repo)
 │   ├── tests/
 │   └── docker-compose.yml
 │
-├── api-gateway/                     # [Future] Submodule → New repo
-│   └── (REST API Gateway)
+├── api-gateway/                     # Submodule → intramind-api-gateway
+│   ├── src/IntraMind.ApiGateway/
+│   ├── src/IntraMind.ApiGateway.Tests/
+│   └── docker-compose.yml
 │
-└── ai-agent/                        # [Future] Submodule → New repo
-    └── (AI Agent Service)
+└── ai-agent/                        # Submodule → intramind-ai-agent
+    └── (AI Agent Service - In Development)
 ```
 
 **Repositories:**
 - **Main Platform**: [IntraMind](https://github.com/JessKelly91/IntraMind)
 - **Vector DB Service**: [ai-vector-db-practice](https://github.com/JessKelly91/ai-vector-db-practice)
-- **API Gateway**: *To be created*
-- **AI Agent**: *To be created*
+- **API Gateway**: [intramind-api-gateway](https://github.com/JessKelly91/intramind-api-gateway)
+- **AI Agent**: [intramind-ai-agent](https://github.com/JessKelly91/intramind-ai-agent)
 
 ## 🏗️ Architecture Overview
 
@@ -49,7 +51,7 @@ IntraMind/                           (Main Platform - This Repo)
        │ HTTP/REST
        ▼
 ┌─────────────┐
-│ API Gateway │  (FastAPI/Flask)
+│ API Gateway │  (ASP.NET Core 8.0)
 └──────┬──────┘
        │ gRPC
        ▼
@@ -70,7 +72,7 @@ IntraMind/                           (Main Platform - This Repo)
 | Component | Technology | Repository | Purpose |
 |-----------|-----------|------------|---------|
 | **AI Agent** | LangChain/AutoGen | `ai-agent/` (Future) | Orchestrates AI workflows and decision-making |
-| **API Gateway** | FastAPI/Flask | `api-gateway/` (Future) | REST API layer, request routing, auth |
+| **API Gateway** | ASP.NET Core 8.0 | `api-gateway/` | REST API layer, request routing, auth |
 | **Vector Service** | Python + gRPC | `vector-db-service/` | Core microservice for vector operations |
 | **Proto Contracts** | Protocol Buffers | `vector-db-service/` | Service definitions and data contracts |
 | **Weaviate DB** | Docker Compose | `vector-db-service/` | Vector storage and semantic search |
@@ -107,17 +109,27 @@ IntraMind/                           (Main Platform - This Repo)
   - [x] Generated Python proto files
   - [x] Configuration management (appSettings.json + .env)
 
-### 🚧 Next Phase
-- [ ] **Phase 3: Gateway Layer - REST API Gateway** 🎯 RECOMMENDED NEXT
+### ✅ Completed
+- [x] **Phase 3: Gateway Layer - REST API Gateway** ✅ COMPLETE
   - [x] Create new submodule repository (`intramind-api-gateway`)
-  - [ ] Implement FastAPI REST endpoints
-  - [ ] Map REST to gRPC calls
-  - [ ] Add authentication and validation
-  - [ ] API documentation (Swagger/OpenAPI)
+  - [x] Implement ASP.NET Core 8.0 REST endpoints
+  - [x] Map REST to gRPC calls
+  - [x] Add error handling and validation
+  - [x] API documentation (Swagger/OpenAPI)
+  - [x] Structured logging with Serilog
+  - [x] Health checks and monitoring
+  - [x] Docker containerization
+  - [x] Unit tests with xUnit and FluentAssertions
+
+### 🚧 Next Phase
+- [ ] **Phase 4: Intelligence Layer - AI Agent** 🎯 RECOMMENDED NEXT
+  - [x] Create new submodule repository (`intramind-ai-agent`)
+  - [ ] Choose AI framework (LangChain/AutoGen/CrewAI)
+  - [ ] Implement agent tools for API Gateway integration
+  - [ ] Add multimodal document processing
+  - [ ] Create agent interface (CLI/Web)
 
 ### ❌ Future Phases
-- [ ] **Phase 4: Intelligence Layer - AI Agent** (new submodule)
-  - [x] Create new submodule repository (`intramind-ai-agent`)
 - [ ] **Phase 5: Integration & Polish**
   - [ ] Platform-wide Docker Compose orchestration
   - [ ] Integration testing across services
@@ -209,9 +221,9 @@ IntraMind/                           (Main Platform - This Repo)
 
 ---
 
-### **Phase 3: Gateway Layer - REST API Gateway** 🎯 CURRENT PHASE
+### **Phase 3: Gateway Layer - REST API Gateway** ✅ COMPLETED
 **Goal:** Create REST API that proxies to gRPC service  
-**Location:** `api-gateway/` (New Submodule - To Be Created)
+**Location:** `api-gateway/` submodule
 
 - [x] **Task 3.0:** Setup New Submodule
   - [x] Create new GitHub repository: `intramind-api-gateway`
@@ -219,51 +231,58 @@ IntraMind/                           (Main Platform - This Repo)
   - [x] Initialize project structure in the new repo
   - [x] Setup initial documentation
 
-- [ ] **Task 3.1:** Design API Gateway
-  - [ ] Choose framework (FastAPI recommended)
-  - [ ] Design REST endpoint structure
-  - [ ] Define request/response schemas
-  - [ ] Plan authentication strategy
+- [x] **Task 3.1:** Design API Gateway
+  - [x] Choose framework (ASP.NET Core 8.0)
+  - [x] Design REST endpoint structure
+  - [x] Define request/response schemas
+  - [x] Plan authentication strategy (CORS for development)
 
-- [ ] **Task 3.2:** Implement Gateway Core
-  - [ ] Setup FastAPI/Flask application
-  - [ ] Create gRPC client connection pool to vector-db-service
-  - [ ] Implement health check endpoints
-  - [ ] Add CORS configuration
+- [x] **Task 3.2:** Implement Gateway Core
+  - [x] Setup ASP.NET Core 8.0 application
+  - [x] Create gRPC client connection pool to vector-db-service
+  - [x] Implement health check endpoints
+  - [x] Add CORS configuration
 
-- [ ] **Task 3.3:** Implement REST Endpoints
-  - [ ] Map REST endpoints to gRPC calls:
-    - [ ] POST /collections - Create collection
-    - [ ] DELETE /collections/{name} - Delete collection
-    - [ ] GET /collections - List collections
-    - [ ] POST /documents - Insert document
-    - [ ] GET /documents/{id} - Get document
-    - [ ] PUT /documents/{id} - Update document
-    - [ ] DELETE /documents/{id} - Delete document
-    - [ ] POST /search - Search documents
+- [x] **Task 3.3:** Implement REST Endpoints
+  - [x] Map REST endpoints to gRPC calls:
+    - [x] GET /v1/collections - List collections
+    - [x] GET /v1/collections/{name} - Get collection
+    - [x] POST /v1/collections - Create collection
+    - [x] DELETE /v1/collections/{name} - Delete collection
+    - [x] POST /v1/documents - Insert document
+    - [x] POST /v1/documents/batch - Batch insert documents
+    - [x] GET /v1/documents/{id} - Get document
+    - [x] PUT /v1/documents/{id} - Update document
+    - [x] DELETE /v1/documents/{id} - Delete document
+    - [x] POST /v1/search - Search documents
+    - [x] GET /health - Health check
+    - [x] GET /health/liveness - Kubernetes liveness probe
+    - [x] GET /health/readiness - Kubernetes readiness probe
 
-- [ ] **Task 3.4:** Add Gateway Features
-  - [ ] Request validation
-  - [ ] Error handling and mapping
-  - [ ] Logging and monitoring
-  - [ ] Rate limiting (optional)
-  - [ ] API documentation (Swagger/OpenAPI)
+- [x] **Task 3.4:** Add Gateway Features
+  - [x] Request validation with FluentValidation
+  - [x] Error handling and mapping middleware
+  - [x] Structured logging with Serilog
+  - [x] API documentation (Swagger/OpenAPI)
+  - [x] Docker containerization support
 
-- [ ] **Task 3.5:** Test API Gateway
-  - [ ] Unit tests for each endpoint
+- [x] **Task 3.5:** Test API Gateway
+  - [x] Unit tests for collections endpoints (xUnit, FluentAssertions, Moq)
+  - [x] Unit tests for documents endpoints (xUnit, FluentAssertions, Moq)
+  - [x] Unit tests for search endpoints (xUnit, FluentAssertions, Moq) 
+  - [x] Unit tests for health endpoints (xUnit, FluentAssertions, Moq)
   - [ ] Integration tests with gRPC service
-  - [ ] Load testing
-  - [ ] Documentation testing
+  - [x] Test project structure and configuration
 
-**Deliverable:** REST API Gateway with full endpoint coverage
+**Deliverable:** ✅ Complete REST API Gateway with full endpoint coverage
 
 > **Note:** This will be a new independent repository added as a submodule to IntraMind.
 
 ---
 
-### **Phase 4: Intelligence Layer - AI Agent**
+### **Phase 4: Intelligence Layer - AI Agent** 🎯 CURRENT PHASE
 **Goal:** Create AI agent that can interact with the vector database  
-**Location:** `ai-agent/` (New Submodule - To Be Created)
+**Location:** `ai-agent/` submodule
 
 - [x] **Task 4.0:** Setup New Submodule
   - [x] Create new GitHub repository: `intramind-ai-agent`
@@ -354,12 +373,12 @@ IntraMind/                           (Main Platform - This Repo)
 
 ## 🎯 Next Immediate Steps
 
-1. **Create API Gateway Repository**: Create new GitHub repository `intramind-api-gateway`
-2. **Add Submodule**: `git submodule add https://github.com/JessKelly91/intramind-api-gateway.git api-gateway`
-3. **Setup FastAPI Project**: Initialize FastAPI application structure
-4. **Implement REST Endpoints**: Map REST calls to gRPC service
-5. **Add Authentication**: Implement basic auth layer
-6. **Test Integration**: Verify REST API works with gRPC service
+1. **Choose AI Framework**: Evaluate LangChain vs AutoGen vs CrewAI for agent implementation
+2. **Design Agent Architecture**: Define agent capabilities, tools, and conversation flow
+3. **Implement Agent Tools**: Create tools for API Gateway integration (search, insert, retrieve, collections)
+4. **Setup Agent Core**: Configure LLM and implement tool calling logic
+5. **Create Agent Interface**: Build CLI interface for testing agent functionality
+6. **Test Integration**: Verify agent can interact with API Gateway and vector service
 
 ## 📝 Key Decisions & Notes
 
@@ -378,7 +397,7 @@ IntraMind/                           (Main Platform - This Repo)
 - **Vector DB**: Weaviate (open source, production-ready)
 - **RPC Protocol**: gRPC (efficient, type-safe, language-agnostic)
 - **Contracts**: Protocol Buffers (schema evolution, code generation)
-- **Gateway**: FastAPI or Flask (to be decided in Phase 3)
+- **Gateway**: ASP.NET Core 8.0 (REST API with Swagger/OpenAPI documentation)
 - **AI Framework**: LangChain/AutoGen/CrewAI (to be decided in Phase 4)
 - **Repository Management**: Git submodules (independent service repositories)
 
@@ -419,6 +438,6 @@ IntraMind/                           (Main Platform - This Repo)
 ---
 
 **Last Updated:** January 2025  
-**Current Phase:** Phase 3 - Gateway Layer (REST API Gateway)  
+**Current Phase:** Phase 4 - Intelligence Layer (AI Agent)  
 **Architecture:** Microservices with Git Submodules
 
