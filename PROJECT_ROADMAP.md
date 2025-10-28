@@ -33,7 +33,7 @@ IntraMind/                           (Main Platform - This Repo)
 │   └── docker-compose.yml
 │
 └── ai-agent/                        # Submodule → intramind-ai-agent
-    └── (AI Agent Service - In Development)
+    └── (AI Agent Service)
 ```
 
 **Repositories:**
@@ -46,7 +46,7 @@ IntraMind/                           (Main Platform - This Repo)
 
 ```
 ┌─────────────┐
-│  AI Agent   │  (LangChain/AutoGen/CrewAI)
+│  AI Agent   │  (LangGraph)
 └──────┬──────┘
        │ HTTP/REST
        ▼
@@ -71,7 +71,7 @@ IntraMind/                           (Main Platform - This Repo)
 
 | Component | Technology | Repository | Purpose |
 |-----------|-----------|------------|---------|
-| **AI Agent** | LangChain/AutoGen | `ai-agent/` (Future) | Orchestrates AI workflows and decision-making |
+| **AI Agent** | LangGraph + LangChain tools | `ai-agent/` | Orchestrates AI workflows and decision-making |
 | **API Gateway** | ASP.NET Core 8.0 | `api-gateway/` | REST API layer, request routing, auth |
 | **Vector Service** | Python + gRPC | `vector-db-service/` | Core microservice for vector operations |
 | **Proto Contracts** | Protocol Buffers | `vector-db-service/` | Service definitions and data contracts |
@@ -121,13 +121,14 @@ IntraMind/                           (Main Platform - This Repo)
   - [x] Docker containerization
   - [x] Unit tests with xUnit and FluentAssertions
 
-### 🚧 Next Phase
-- [ ] **Phase 4: Intelligence Layer - AI Agent** 🎯 RECOMMENDED NEXT
+### 🚧 In Progress
+- [ ] **Phase 4: Intelligence Layer - AI Agent**
   - [x] Create new submodule repository (`intramind-ai-agent`)
-  - [ ] Choose AI framework (LangChain/AutoGen/CrewAI)
-  - [ ] Implement agent tools for API Gateway integration
+  - [x] Choose AI framework (LangGraph)
+  - [x] Implement core agent tools for API Gateway integration
   - [ ] Add multimodal document processing
-  - [ ] Create agent interface (CLI/Web)
+  - [x] Create agent interface (CLI)
+  - [ ] Create agent interface (Web)
 
 ### ❌ Future Phases
 - [ ] **Phase 5: Integration & Polish**
@@ -280,7 +281,7 @@ IntraMind/                           (Main Platform - This Repo)
 
 ---
 
-### **Phase 4: Intelligence Layer - AI Agent** 🎯 CURRENT PHASE
+### **Phase 4: Intelligence Layer - AI Agent** 🚧 IN PROGRESS
 **Goal:** Create AI agent that can interact with the vector database  
 **Location:** `ai-agent/` submodule
 
@@ -291,31 +292,31 @@ IntraMind/                           (Main Platform - This Repo)
   - [x] Setup initial documentation
 
 - [ ] **Task 4.1:** Design Agent Architecture
-  - [ ] Choose framework (LangChain/AutoGen/CrewAI)
-  - [ ] Define agent capabilities/tools
-  - [ ] Design conversation flow
+  - [x] Choose framework (LangGraph)
+  - [x] Define agent capabilities/tools
+  - [x] Design conversation flow
   - [ ] Plan agent memory/context handling
   - [ ] Plan multimodal document processing (text, images, presentations)
 
 - [ ] **Task 4.2:** Implement Agent Tools
-  - [ ] Create tool for document insertion (via API Gateway)
-  - [ ] Create tool for semantic search (via API Gateway)
-  - [ ] Create tool for document retrieval (via API Gateway)
-  - [ ] Create tool for collection management (via API Gateway)
+  - [x] Create tool for document insertion (via API Gateway)
+  - [x] Create tool for semantic search (via API Gateway)
+  - [x] Create tool for document retrieval (via API Gateway)
+  - [x] Create tool for collection management (via API Gateway)
   - [ ] Create tool for image/presentation processing
 
 - [ ] **Task 4.3:** Implement Agent Core
-  - [ ] Setup agent framework
-  - [ ] Configure LLM (local or API)
-  - [ ] Implement tool calling logic
+  - [x] Setup agent framework
+  - [x] Configure LLM (local or API)
+  - [x] Implement tool calling logic
   - [ ] Add conversation memory
-  - [ ] Add error recovery
+  - [x] Add error recovery
   - [ ] Add multimodal content handling
 
 - [ ] **Task 4.4:** Create Agent Interface
-  - [ ] CLI interface for testing
+  - [x] CLI interface for testing
   - [ ] Web interface (optional)
-  - [ ] Logging and observability
+  - [x] Logging and observability
 
 - [ ] **Task 4.5:** Test AI Agent
   - [ ] Test basic interactions
@@ -373,12 +374,12 @@ IntraMind/                           (Main Platform - This Repo)
 
 ## 🎯 Next Immediate Steps
 
-1. **Choose AI Framework**: Evaluate LangChain vs AutoGen vs CrewAI for agent implementation
-2. **Design Agent Architecture**: Define agent capabilities, tools, and conversation flow
-3. **Implement Agent Tools**: Create tools for API Gateway integration (search, insert, retrieve, collections)
-4. **Setup Agent Core**: Configure LLM and implement tool calling logic
-5. **Create Agent Interface**: Build CLI interface for testing agent functionality
-6. **Test Integration**: Verify agent can interact with API Gateway and vector service
+1. **Finalize LLM configuration**: Set API keys or use Ollama defaults (router); Anthropic/OpenAI for synthesis
+2. **Implement conversation memory**: Add short-term memory to the search workflow
+3. **Extend tools**: Add batch insert/update/delete tools and image/presentation processing
+4. **Expand tests**: Add workflow and CLI tests; increase coverage
+5. **Optional Web UI**: Simple web frontend for search and result viewing
+6. **Integration checks**: Verify agent ↔ API Gateway ↔ Vector Service end-to-end
 
 ## 📝 Key Decisions & Notes
 
@@ -398,7 +399,7 @@ IntraMind/                           (Main Platform - This Repo)
 - **RPC Protocol**: gRPC (efficient, type-safe, language-agnostic)
 - **Contracts**: Protocol Buffers (schema evolution, code generation)
 - **Gateway**: ASP.NET Core 8.0 (REST API with Swagger/OpenAPI documentation)
-- **AI Framework**: LangChain/AutoGen/CrewAI (to be decided in Phase 4)
+- **AI Framework**: LangGraph + LangChain tools (selected for Phase 4)
 - **Repository Management**: Git submodules (independent service repositories)
 
 ### Submodule Workflow
@@ -437,7 +438,7 @@ IntraMind/                           (Main Platform - This Repo)
 
 ---
 
-**Last Updated:** January 2025  
-**Current Phase:** Phase 4 - Intelligence Layer (AI Agent)  
+**Last Updated:** October 2025  
+**Current Phase:** Phase 4 - Intelligence Layer (AI Agent) — In Progress  
 **Architecture:** Microservices with Git Submodules
 

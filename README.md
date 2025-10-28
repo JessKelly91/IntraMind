@@ -11,8 +11,8 @@ IntraMind follows a microservices architecture with independent, deployable serv
 ```
 IntraMind/
 ├── vector-db-service/        # Vector database service (gRPC)
-├── api-gateway/              # [Planned] REST API gateway
-└── ai-agent/                 # [Planned] AI agent orchestration
+├── api-gateway/              # REST API gateway (ASP.NET Core)
+└── ai-agent/                 # AI agent orchestration (LangGraph)
 ```
 
 ### Current Services
@@ -22,11 +22,14 @@ IntraMind/
   - Weaviate integration for semantic search
   - Document vectorization and storage
   - Python + gRPC + Weaviate
-
-### Planned Services
-
-- **api-gateway**: REST API facade for external clients
-- **ai-agent**: AI orchestration layer for intelligent document retrieval
+- **api-gateway** ([Repository](https://github.com/JessKelly91/intramind-api-gateway))
+  - ASP.NET Core 8.0 REST API layer
+  - Proxies to gRPC Vector DB Service
+  - Swagger, validation, error handling, health checks
+- **ai-agent** ([Repository](https://github.com/JessKelly91/intramind-ai-agent))
+  - LangGraph-based AI workflows
+  - Tools for search/insert/retrieve/collections via API Gateway
+  - CLI with streaming and logging
 
 ## 🚀 Getting Started
 
@@ -94,16 +97,18 @@ git push
 
 ## 🛠️ Tech Stack
 
-- **Backend**: Python, gRPC, Protocol Buffers
+- **Vector Service**: Python, gRPC, Protocol Buffers, Weaviate
+- **API Gateway**: ASP.NET Core 8.0, Grpc.Net.Client, Serilog, FluentValidation, Swagger
+- **AI Agent**: Python, LangGraph, LangChain tools, httpx, Click, Rich
 - **Vector Database**: Weaviate
 - **Containerization**: Docker, Docker Compose
-- **Future**: FastAPI/REST, LangChain, OpenAI/Azure OpenAI
+- **LLM Providers**: Ollama (router), Anthropic/OpenAI (synthesis)
 
 ## 🎯 Roadmap
 
 - [x] Vector database service with gRPC API
-- [ ] REST API Gateway
-- [ ] AI Agent orchestration layer
+- [x] REST API Gateway
+- [ ] AI Agent orchestration layer (in progress)
 - [ ] Multimodal support (images, presentations)
 - [ ] Document preprocessing pipeline
 - [ ] Authentication & authorization
