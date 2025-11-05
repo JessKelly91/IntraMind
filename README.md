@@ -35,29 +35,98 @@ IntraMind/
 
 ### Prerequisites
 
-- Git
-- Docker & Docker Compose
-- Python 3.11+
+- **Git**
+- **Docker & Docker Compose**
+- **Python 3.11+**
+- **Ollama** (for AI Agent LLM)
 
-### Clone with Submodules
+### Installation Steps
+
+#### 1. Clone with Submodules
 
 ```bash
 # Clone the repository with all submodules
 git clone --recurse-submodules https://github.com/JessKelly91/IntraMind.git
+cd IntraMind
 
 # Or if you already cloned, initialize submodules
-git clone https://github.com/JessKelly91/IntraMind.git
-cd IntraMind
 git submodule update --init --recursive
 ```
 
-### Quick Start
+#### 2. Install Ollama (One-time setup)
+
+The AI Agent uses Ollama for local LLM routing. Install it once on your machine:
 
 ```bash
-# Navigate to vector-db-service
-cd vector-db-service
+# Download and install from https://ollama.ai/
+# Then pull the required model:
+ollama pull llama3.2:3b
 
-# Follow setup instructions in the submodule's README
+# Start Ollama (keep running in background)
+ollama serve
+```
+
+#### 3. Start IntraMind Platform
+
+```bash
+# Start all backend services (Weaviate, Vector Service, API Gateway)
+docker-compose up -d
+
+# Verify all services are healthy
+docker-compose ps
+
+# View logs (optional)
+docker-compose logs -f api-gateway
+```
+
+**Services will be available at:**
+- **Weaviate**: http://localhost:8080
+- **Vector Service (gRPC)**: http://localhost:50052
+- **API Gateway (REST)**: http://localhost:5000
+- **API Gateway Swagger**: http://localhost:5000/swagger
+
+#### 4. Run AI Agent CLI
+
+```bash
+# Navigate to AI agent directory
+cd ai-agent
+
+# Install dependencies (first time only)
+pip install -r requirements.txt
+
+# Configure environment (copy and edit .env file)
+cp .env.example .env
+# Edit .env to add your ANTHROPIC_API_KEY or OPENAI_API_KEY (optional)
+
+# Run interactive CLI
+python -m src.cli.main
+
+# Or run a single search query
+python -m src.cli.main search "your search query"
+```
+
+### Quick Health Check
+
+```bash
+# Test Weaviate
+curl http://localhost:8080/v1/.well-known/ready
+
+# Test API Gateway
+curl http://localhost:5000/health
+
+# Test full stack with AI Agent
+cd ai-agent
+python -m src.cli.main search "test"
+```
+
+### Stopping Services
+
+```bash
+# Stop all Docker services
+docker-compose down
+
+# Stop and remove volumes (clean slate)
+docker-compose down -v
 ```
 
 ## 🔄 Working with Submodules
@@ -116,9 +185,15 @@ git push
 
 ## 📚 Documentation
 
-Each microservice contains its own detailed documentation:
+### Platform Documentation
+- **[Docker Setup Guide](./docs/DOCKER_SETUP.md)** - Complete Docker Compose setup and troubleshooting
+- **[Architecture Overview](./docs/ARCHITECTURE.md)** - System design and component details
+- **[Project Roadmap](./docs/PROJECT_ROADMAP.md)** - Development progress and plans
 
+### Service Documentation
 - [Vector DB Service](./vector-db-service/README.md)
+- [API Gateway](./api-gateway/README.md)
+- [AI Agent](./ai-agent/README.md)
 
 ## 🤝 Contributing
 

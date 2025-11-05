@@ -707,3 +707,10 @@ secrets/
 *.tar.gz
 *.rar
 *.7z
+
+################################################################################
+# IntraMind Project - Internal Documentation
+################################################################################
+# Development notes and summaries (not for version control)
+docs/SETUP_SUMMARY.md
+docs/PRODUCTION_IMPROVEMENTS.md
