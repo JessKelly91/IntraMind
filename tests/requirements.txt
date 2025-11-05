@@ -1,0 +1,28 @@
+# IntraMind Platform Integration Tests - Dependencies
+# Python 3.11+
+
+# Testing Framework
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-xdist>=3.3.0           # Parallel test execution
+pytest-timeout>=2.1.0          # Timeout protection
+pytest-benchmark>=4.0.0        # Performance benchmarking
+
+# HTTP & API Testing
+requests>=2.31.0
+httpx>=0.25.0                  # Async HTTP client
+
+# gRPC (for direct service testing if needed)
+grpcio>=1.59.0
+grpcio-tools>=1.59.0
+
+# Utilities
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+
+# Load Testing (optional)
+locust>=2.15.0
+
+# Reporting
+pytest-html>=4.0.0             # HTML test reports
+
