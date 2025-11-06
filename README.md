@@ -185,15 +185,25 @@ git push
 
 ## 📚 Documentation
 
-### Platform Documentation
-- **[Docker Setup Guide](./docs/DOCKER_SETUP.md)** - Complete Docker Compose setup and troubleshooting
-- **[Architecture Overview](./docs/ARCHITECTURE.md)** - System design and component details
-- **[Project Roadmap](./docs/PROJECT_ROADMAP.md)** - Development progress and plans
+### Getting Started
+- **[User Guide](./docs/USER_GUIDE.md)** - Complete guide with end-to-end usage scenarios
+- **[Deployment Guide](./docs/DEPLOYMENT_GUIDE.md)** - Local and production deployment instructions
+- **[Docker Setup Guide](./docs/DOCKER_SETUP.md)** - Docker Compose setup and troubleshooting
 
-### Service Documentation
-- [Vector DB Service](./vector-db-service/README.md)
-- [API Gateway](./api-gateway/README.md)
-- [AI Agent](./ai-agent/README.md)
+### Developer Resources
+- **[API Reference](./docs/API_REFERENCE.md)** - Complete API documentation for all services
+- **[Submodule Guide](./docs/SUBMODULE_GUIDE.md)** - Working with Git submodules
+- **[Architecture Overview](./docs/ARCHITECTURE.md)** - System design and component details
+
+### Project Management
+- **[Project Roadmap](./docs/PROJECT_ROADMAP.md)** - Development progress and plans
+- **[Production Improvements](./docs/PRODUCTION_IMPROVEMENTS.md)** - NuGet package implementation
+- **[NuGet Implementation](./docs/NUGET_IMPLEMENTATION.md)** - Contract packaging details
+
+### Service-Specific Documentation
+- [Vector DB Service](./vector-db-service/README.md) - Python gRPC service
+- [API Gateway](./api-gateway/README.md) - ASP.NET Core REST API
+- [AI Agent](./ai-agent/README.md) - LangGraph AI workflows
 
 ## 🤝 Contributing
 
