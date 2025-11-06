@@ -223,12 +223,13 @@ jobs:
         run: |
           echo "🔨 Building ${{ matrix.service.name }}..."
 
-          docker build \
+          docker buildx build \
             --cache-from type=local,src=/tmp/.buildx-cache \
             --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max \
             --tag intramind-${{ matrix.service.name }}:ci-${{ github.sha }} \
             --tag intramind-${{ matrix.service.name }}:ci-latest \
             --file ${{ matrix.service.dockerfile }} \
+            --load \
             ${{ matrix.service.context }}
 
           echo "✅ Successfully built ${{ matrix.service.name }}"
