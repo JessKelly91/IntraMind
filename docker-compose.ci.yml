@@ -1,0 +1,96 @@
+# CI-optimized Docker Compose Configuration
+# This skips the heavy transformers model to speed up CI runs
+
+version: '3.8'
+
+services:
+  # ============================================
+  # Weaviate - Without Vectorizer (CI Mode)
+  # ============================================
+  weaviate:
+    image: cr.weaviate.io/semitechnologies/weaviate:1.27.0
+    container_name: intramind-weaviate-ci
+    ports:
+      - "8080:8080"
+    environment:
+      # Query Configuration
+      QUERY_DEFAULTS_LIMIT: 25
+
+      # Authentication
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+
+      # Persistence (in-memory for CI)
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+
+      # NO VECTORIZER for CI (much faster)
+      DEFAULT_VECTORIZER_MODULE: 'none'
+      ENABLE_MODULES: ''
+
+      # Cluster Configuration
+      CLUSTER_HOSTNAME: 'node1'
+
+      # Logging
+      LOG_LEVEL: 'warning'
+    networks:
+      - intramind-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/v1/.well-known/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  # ============================================
+  # Vector Service
+  # ============================================
+  vector-service:
+    image: intramind-vector-service:ci-latest
+    container_name: intramind-vector-service-ci
+    ports:
+      - "50052:50052"
+    environment:
+      - WEAVIATE_URL=http://weaviate:8080
+      - WEAVIATE_KEY=
+      - ENVIRONMENT=CI
+      - APPLICATION_ID=intramind-vector-service-ci
+      - GRPC_PORT=50052
+    networks:
+      - intramind-network
+    depends_on:
+      weaviate:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import grpc; channel = grpc.insecure_channel(\"localhost:50052\"); grpc.channel_ready_future(channel).result(timeout=5)' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ============================================
+  # API Gateway
+  # ============================================
+  api-gateway:
+    image: intramind-api-gateway:ci-latest
+    container_name: intramind-api-gateway-ci
+    ports:
+      - "5000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - VectorService__Endpoint=http://vector-service:50052
+    networks:
+      - intramind-network
+    depends_on:
+      vector-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/health/liveness || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+networks:
+  intramind-network:
+    driver: bridge
+    name: intramind-network-ci

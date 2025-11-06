@@ -299,45 +299,30 @@ jobs:
 
       - name: Tag images for docker-compose
         run: |
-          echo "🏷️  Tagging images for docker-compose..."
+          echo "🏷️  Tagging images for CI..."
 
           # Tag vector-service
           if docker images | grep -q "intramind-vector-service"; then
             docker tag intramind-vector-service:ci-${{ github.sha }} \
-              intramind-vector-service:latest
+              intramind-vector-service:ci-latest
           fi
 
           # Tag api-gateway
           if docker images | grep -q "intramind-api-gateway"; then
             docker tag intramind-api-gateway:ci-${{ github.sha }} \
-              intramind-api-gateway:latest
+              intramind-api-gateway:ci-latest
           fi
-
-      - name: Create Docker Compose override for CI
-        run: |
-          cat > docker-compose.ci.yml << 'EOF'
-          version: '3.8'
-          services:
-            vector-service:
-              image: intramind-vector-service:latest
-              build:
-                context: ./vector-db-service
-                dockerfile: Dockerfile
-
-            api-gateway:
-              image: intramind-api-gateway:latest
-              build:
-                context: ./api-gateway
-                dockerfile: src/IntraMind.ApiGateway/Dockerfile
-          EOF
 
       - name: Start services with docker-compose
         run: |
-          echo "🚀 Starting all services..."
-          docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d
+          echo "🚀 Starting services with CI-optimized configuration..."
+          echo "   (Skipping 8GB transformers model for faster CI runs)"
+
+          # Use the CI-optimized docker-compose file (no transformers)
+          docker compose -f docker-compose.ci.yml up -d
 
           echo "⏳ Waiting for services to be healthy..."
-          sleep 10
+          sleep 15
 
       - name: Wait for services to be ready
         run: |
@@ -378,7 +363,7 @@ jobs:
         if: always()
         run: |
           echo "📋 Service logs:"
-          docker compose logs --tail=50
+          docker compose -f docker-compose.ci.yml logs --tail=50
 
       - name: Set up Python for tests
         uses: actions/setup-python@v5
@@ -428,8 +413,8 @@ jobs:
         if: always()
         run: |
           echo "🛑 Stopping services..."
-          docker compose down -v
-          docker compose logs
+          docker compose -f docker-compose.ci.yml down -v
+          docker compose -f docker-compose.ci.yml logs
 
   # ============================================
   # Job 5: Generate Summary
