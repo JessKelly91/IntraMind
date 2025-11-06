@@ -1,0 +1,86 @@
+# IntraMind Code Owners
+#
+# This file defines individuals or teams responsible for code in this repository.
+# Code owners are automatically requested for review when someone opens a pull
+# request that modifies code that they own.
+#
+# More info: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# =============================================================================
+# Default Owners
+# =============================================================================
+# These owners will be the default owners for everything in the repo.
+# Unless a later match takes precedence, these owners will be requested for
+# review when someone opens a pull request.
+
+* @JessKelly91
+
+# =============================================================================
+# Documentation
+# =============================================================================
+
+/docs/ @JessKelly91
+*.md @JessKelly91
+README.md @JessKelly91
+
+# =============================================================================
+# CI/CD and DevOps
+# =============================================================================
+
+/.github/ @JessKelly91
+/.github/workflows/ @JessKelly91
+docker-compose*.yml @JessKelly91
+.dockerignore @JessKelly91
+Dockerfile @JessKelly91
+*/Dockerfile @JessKelly91
+
+# =============================================================================
+# Vector DB Service (Python + gRPC)
+# =============================================================================
+
+/vector-db-service/ @JessKelly91
+/vector-db-service/src/ @JessKelly91
+/vector-db-service/tests/ @JessKelly91
+/vector-db-service/*.proto @JessKelly91
+
+# =============================================================================
+# API Gateway (ASP.NET Core)
+# =============================================================================
+
+/api-gateway/ @JessKelly91
+/api-gateway/src/ @JessKelly91
+/api-gateway/tests/ @JessKelly91
+/api-gateway/*.csproj @JessKelly91
+
+# =============================================================================
+# AI Agent (Python + LangGraph)
+# =============================================================================
+
+/ai-agent/ @JessKelly91
+/ai-agent/src/ @JessKelly91
+/ai-agent/tests/ @JessKelly91
+
+# =============================================================================
+# Integration Tests
+# =============================================================================
+
+/tests/ @JessKelly91
+/tests/integration/ @JessKelly91
+pytest.ini @JessKelly91
+
+# =============================================================================
+# Configuration Files
+# =============================================================================
+
+*.json @JessKelly91
+*.yml @JessKelly91
+*.yaml @JessKelly91
+.env.example @JessKelly91
+*.config @JessKelly91
+
+# =============================================================================
+# Protocol Buffers / Contracts
+# =============================================================================
+
+*.proto @JessKelly91
+/vector-db-service/vector-db-contracts/ @JessKelly91

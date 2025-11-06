@@ -1,0 +1,468 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+env:
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
+
+jobs:
+  # ============================================
+  # Job 1: Validate Submodules
+  # ============================================
+  validate-submodules:
+    name: Validate Submodules
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Check submodule status
+        run: |
+          echo "📋 Checking submodule status..."
+          git submodule status
+
+          # Check for detached HEAD states
+          for submodule in $(git submodule status | awk '{print $2}'); do
+            echo "Checking $submodule..."
+            cd "$submodule"
+
+            # Get current commit
+            CURRENT_COMMIT=$(git rev-parse HEAD)
+
+            # Check if HEAD is detached
+            if ! git symbolic-ref HEAD >/dev/null 2>&1; then
+              echo "⚠️  Warning: $submodule is in detached HEAD state at $CURRENT_COMMIT"
+            else
+              BRANCH=$(git symbolic-ref --short HEAD)
+              echo "✅ $submodule is on branch: $BRANCH"
+            fi
+
+            cd - > /dev/null
+          done
+
+      - name: Verify submodule commits exist
+        run: |
+          echo "🔍 Verifying submodule commits are valid..."
+
+          for submodule in $(git submodule status | awk '{print $2}'); do
+            cd "$submodule"
+            COMMIT=$(git rev-parse HEAD)
+
+            # Verify the commit exists
+            if git cat-file -e "$COMMIT^{commit}" 2>/dev/null; then
+              echo "✅ $submodule commit $COMMIT is valid"
+            else
+              echo "❌ ERROR: $submodule commit $COMMIT is invalid!"
+              exit 1
+            fi
+
+            cd - > /dev/null
+          done
+
+  # ============================================
+  # Job 2: Lint and Security Scan
+  # ============================================
+  lint-and-security:
+    name: Lint & Security Scan
+    runs-on: ubuntu-latest
+    needs: validate-submodules
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install linting tools
+        run: |
+          pip install --upgrade pip
+          pip install yamllint hadolint-py
+
+      - name: Lint YAML files
+        continue-on-error: true
+        run: |
+          echo "🔍 Linting YAML files..."
+
+          # Create yamllint config
+          cat > .yamllint.yml << 'EOF'
+          extends: default
+          rules:
+            line-length:
+              max: 120
+              level: warning
+            comments:
+              min-spaces-from-content: 1
+            truthy:
+              allowed-values: ['true', 'false', 'on', 'off']
+          EOF
+
+          # Find and lint YAML files
+          find . -type f \( -name "*.yml" -o -name "*.yaml" \) \
+            -not -path "*/node_modules/*" \
+            -not -path "*/venv/*" \
+            -not -path "*/.venv/*" \
+            | xargs yamllint -c .yamllint.yml || true
+
+      - name: Lint Dockerfiles
+        continue-on-error: true
+        run: |
+          echo "🔍 Linting Dockerfiles..."
+
+          # Find and lint Dockerfiles
+          find . -type f -name "Dockerfile*" \
+            -not -path "*/node_modules/*" \
+            -not -path "*/venv/*" \
+            | xargs -I {} sh -c 'echo "Linting {}" && hadolint {} || true'
+
+      - name: Run Trivy vulnerability scanner (filesystem)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'  # Don't fail the build on vulnerabilities yet
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Secret scanning (GitGuardian)
+        continue-on-error: true
+        run: |
+          echo "🔐 Checking for exposed secrets..."
+
+          # Simple secret pattern detection (basic implementation)
+          # In production, use GitGuardian or similar tool
+          echo "Scanning for common secret patterns..."
+
+          # Check for common secret patterns
+          if grep -r -E "(password|passwd|pwd|secret|token|api_key|apikey).*=.*['\"][^'\"]{8,}['\"]" \
+            --include="*.py" --include="*.cs" --include="*.yml" --include="*.yaml" \
+            --exclude-dir=venv --exclude-dir=node_modules --exclude-dir=.git \
+            . ; then
+            echo "⚠️  Warning: Potential secrets found in code. Please review."
+          else
+            echo "✅ No obvious secrets detected"
+          fi
+
+  # ============================================
+  # Job 3: Build Docker Services
+  # ============================================
+  build-services:
+    name: Build Docker Services
+    runs-on: ubuntu-latest
+    needs: validate-submodules
+    strategy:
+      matrix:
+        service:
+          - name: weaviate
+            build: false  # Use official image
+          - name: t2v-transformers
+            build: false  # Use official image
+          - name: vector-service
+            build: true
+            context: ./vector-db-service
+            dockerfile: ./vector-db-service/Dockerfile
+          - name: api-gateway
+            build: true
+            context: ./api-gateway
+            dockerfile: ./api-gateway/src/IntraMind.ApiGateway/Dockerfile
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        if: matrix.service.build
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        if: matrix.service.build
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ matrix.service.name }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-${{ matrix.service.name }}-
+            ${{ runner.os }}-buildx-
+
+      - name: Build Docker image - ${{ matrix.service.name }}
+        if: matrix.service.build
+        run: |
+          echo "🔨 Building ${{ matrix.service.name }}..."
+
+          docker build \
+            --cache-from type=local,src=/tmp/.buildx-cache \
+            --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            --tag intramind-${{ matrix.service.name }}:ci-${{ github.sha }} \
+            --tag intramind-${{ matrix.service.name }}:ci-latest \
+            --file ${{ matrix.service.dockerfile }} \
+            ${{ matrix.service.context }}
+
+          echo "✅ Successfully built ${{ matrix.service.name }}"
+
+      - name: Move cache
+        if: matrix.service.build
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache || true
+
+      - name: Scan Docker image with Trivy
+        if: matrix.service.build
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          image-ref: 'intramind-${{ matrix.service.name }}:ci-${{ github.sha }}'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'  # Don't fail on vulnerabilities yet
+
+      - name: Export Docker image
+        if: matrix.service.build
+        run: |
+          echo "📦 Exporting ${{ matrix.service.name }} image..."
+          docker save intramind-${{ matrix.service.name }}:ci-${{ github.sha }} \
+            | gzip > ${{ matrix.service.name }}-image.tar.gz
+
+      - name: Upload Docker image artifact
+        if: matrix.service.build
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image-${{ matrix.service.name }}
+          path: ${{ matrix.service.name }}-image.tar.gz
+          retention-days: 1
+
+  # ============================================
+  # Job 4: Integration Tests
+  # ============================================
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [lint-and-security, build-services]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download Docker images
+        uses: actions/download-artifact@v4
+        with:
+          pattern: docker-image-*
+          path: /tmp/docker-images
+
+      - name: Load Docker images
+        run: |
+          echo "📦 Loading Docker images..."
+          for image in /tmp/docker-images/docker-image-*/*.tar.gz; do
+            echo "Loading $image..."
+            docker load < "$image"
+          done
+
+          echo "✅ Docker images loaded:"
+          docker images | grep intramind
+
+      - name: Tag images for docker-compose
+        run: |
+          echo "🏷️  Tagging images for docker-compose..."
+
+          # Tag vector-service
+          if docker images | grep -q "intramind-vector-service"; then
+            docker tag intramind-vector-service:ci-${{ github.sha }} \
+              intramind-vector-service:latest
+          fi
+
+          # Tag api-gateway
+          if docker images | grep -q "intramind-api-gateway"; then
+            docker tag intramind-api-gateway:ci-${{ github.sha }} \
+              intramind-api-gateway:latest
+          fi
+
+      - name: Create Docker Compose override for CI
+        run: |
+          cat > docker-compose.ci.yml << 'EOF'
+          version: '3.8'
+          services:
+            vector-service:
+              image: intramind-vector-service:latest
+              build:
+                context: ./vector-db-service
+                dockerfile: Dockerfile
+
+            api-gateway:
+              image: intramind-api-gateway:latest
+              build:
+                context: ./api-gateway
+                dockerfile: src/IntraMind.ApiGateway/Dockerfile
+          EOF
+
+      - name: Start services with docker-compose
+        run: |
+          echo "🚀 Starting all services..."
+          docker-compose -f docker-compose.yml -f docker-compose.ci.yml up -d
+
+          echo "⏳ Waiting for services to be healthy..."
+          sleep 10
+
+      - name: Wait for services to be ready
+        run: |
+          echo "⏳ Waiting for services to be ready..."
+
+          # Function to check health
+          check_health() {
+            local service=$1
+            local url=$2
+            local max_attempts=30
+            local attempt=1
+
+            while [ $attempt -le $max_attempts ]; do
+              echo "Checking $service (attempt $attempt/$max_attempts)..."
+
+              if curl -f -s "$url" > /dev/null; then
+                echo "✅ $service is healthy"
+                return 0
+              fi
+
+              sleep 5
+              attempt=$((attempt + 1))
+            done
+
+            echo "❌ $service failed to become healthy"
+            return 1
+          }
+
+          # Check Weaviate
+          check_health "Weaviate" "http://localhost:8080/v1/.well-known/ready"
+
+          # Check API Gateway
+          check_health "API Gateway" "http://localhost:5000/health/liveness"
+
+          echo "✅ All services are ready!"
+
+      - name: Show service logs
+        if: always()
+        run: |
+          echo "📋 Service logs:"
+          docker-compose logs --tail=50
+
+      - name: Set up Python for tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install test dependencies
+        run: |
+          cd tests
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run integration tests
+        run: |
+          echo "🧪 Running integration tests..."
+          cd tests
+
+          pytest integration/ \
+            -v \
+            --tb=short \
+            --html=test-report.html \
+            --self-contained-html \
+            --cov=. \
+            --cov-report=html \
+            --cov-report=term \
+            --junit-xml=test-results.xml
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: |
+            tests/test-report.html
+            tests/test-results.xml
+            tests/htmlcov/
+          retention-days: 30
+
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: tests/test-results.xml
+          check_name: Integration Test Results
+
+      - name: Stop services
+        if: always()
+        run: |
+          echo "🛑 Stopping services..."
+          docker-compose down -v
+          docker-compose logs
+
+  # ============================================
+  # Job 5: Generate Summary
+  # ============================================
+  generate-summary:
+    name: Generate Summary
+    runs-on: ubuntu-latest
+    needs: [validate-submodules, lint-and-security, build-services, integration-tests]
+    if: always()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download test results
+        uses: actions/download-artifact@v4
+        with:
+          name: test-results
+          path: ./test-results
+        continue-on-error: true
+
+      - name: Generate build summary
+        run: |
+          echo "# 🎯 CI Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "## 📊 Job Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Validate Submodules | ${{ needs.validate-submodules.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint & Security | ${{ needs.lint-and-security.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build Services | ${{ needs.build-services.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Integration Tests | ${{ needs.integration-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "## 🐳 Docker Images Built" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- \`intramind-vector-service:ci-${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`intramind-api-gateway:ci-${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "## 📝 Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "View detailed test results in the artifacts." >> $GITHUB_STEP_SUMMARY

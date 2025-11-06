@@ -510,10 +510,8 @@ cython_debug/
 .claude/*
 *.claude
 
-# GitHub
-.github/
-.github/*
-*.github
+# GitHub (workflows should be tracked)
+# .github/ - DO NOT ignore, we need workflows!
 
 # Marimo
 marimo/_static/

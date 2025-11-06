@@ -1,0 +1,218 @@
+name: Publish Docker Images
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to build and publish (all, vector-service, api-gateway)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - vector-service
+          - api-gateway
+      tag:
+        description: 'Additional tag (optional)'
+        required: false
+        type: string
+
+env:
+  DOCKER_BUILDKIT: 1
+  REGISTRY: ghcr.io
+  REGISTRY_USERNAME: ${{ github.actor }}
+
+jobs:
+  # ============================================
+  # Job 1: Build and Push Vector Service
+  # ============================================
+  publish-vector-service:
+    name: Publish Vector Service
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.service == 'all' || github.event.inputs.service == 'vector-service'))
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.REGISTRY_USERNAME }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/intramind-vector-service
+          tags: |
+            # Tag as 'latest' on main branch
+            type=raw,value=latest,enable={{is_default_branch}}
+            # Tag with semantic version on tags
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            # Tag with branch name
+            type=ref,event=branch
+            # Tag with git short SHA
+            type=sha,prefix={{branch}}-
+            # Custom tag from workflow input
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event.inputs.tag != '' }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./vector-db-service
+          file: ./vector-db-service/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ github.repository_owner }}/intramind-vector-service
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+  # ============================================
+  # Job 2: Build and Push API Gateway
+  # ============================================
+  publish-api-gateway:
+    name: Publish API Gateway
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.service == 'all' || github.event.inputs.service == 'api-gateway'))
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.REGISTRY_USERNAME }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/intramind-api-gateway
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event.inputs.tag != '' }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./api-gateway
+          file: ./api-gateway/src/IntraMind.ApiGateway/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ github.repository_owner }}/intramind-api-gateway
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+  # ============================================
+  # Job 3: Verify Published Images
+  # ============================================
+  verify-images:
+    name: Verify Published Images
+    runs-on: ubuntu-latest
+    needs: [publish-vector-service, publish-api-gateway]
+    if: always()
+
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.REGISTRY_USERNAME }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify Vector Service image
+        if: needs.publish-vector-service.result == 'success'
+        run: |
+          echo "🔍 Verifying vector-service image..."
+          docker pull ${{ env.REGISTRY }}/${{ github.repository_owner }}/intramind-vector-service:latest
+          docker inspect ${{ env.REGISTRY }}/${{ github.repository_owner }}/intramind-vector-service:latest
+          echo "✅ Vector Service image verified"
+
+      - name: Verify API Gateway image
+        if: needs.publish-api-gateway.result == 'success'
+        run: |
+          echo "🔍 Verifying api-gateway image..."
+          docker pull ${{ env.REGISTRY }}/${{ github.repository_owner }}/intramind-api-gateway:latest
+          docker inspect ${{ env.REGISTRY }}/${{ github.repository_owner }}/intramind-api-gateway:latest
+          echo "✅ API Gateway image verified"
+
+      - name: Generate summary
+        run: |
+          echo "# 🐳 Docker Images Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Registry:** \`${{ env.REGISTRY }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Ref:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Published Images" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.publish-vector-service.result }}" == "success" ]; then
+            echo "✅ **Vector Service:** \`${{ env.REGISTRY }}/${{ github.repository_owner }}/intramind-vector-service:latest\`" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.publish-api-gateway.result }}" == "success" ]; then
+            echo "✅ **API Gateway:** \`${{ env.REGISTRY }}/${{ github.repository_owner }}/intramind-api-gateway:latest\`" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Usage" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "# Pull images" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.REGISTRY }}/${{ github.repository_owner }}/intramind-vector-service:latest" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.REGISTRY }}/${{ github.repository_owner }}/intramind-api-gateway:latest" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
