@@ -334,7 +334,7 @@ jobs:
       - name: Start services with docker-compose
         run: |
           echo "🚀 Starting all services..."
-          docker-compose -f docker-compose.yml -f docker-compose.ci.yml up -d
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d
 
           echo "⏳ Waiting for services to be healthy..."
           sleep 10
@@ -378,7 +378,7 @@ jobs:
         if: always()
         run: |
           echo "📋 Service logs:"
-          docker-compose logs --tail=50
+          docker compose logs --tail=50
 
       - name: Set up Python for tests
         uses: actions/setup-python@v5
@@ -428,8 +428,8 @@ jobs:
         if: always()
         run: |
           echo "🛑 Stopping services..."
-          docker-compose down -v
-          docker-compose logs
+          docker compose down -v
+          docker compose logs
 
   # ============================================
   # Job 5: Generate Summary

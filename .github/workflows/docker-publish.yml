@@ -48,6 +48,11 @@ jobs:
           submodules: recursive
           token: ${{ secrets.GHCR_TOKEN }}
 
+      - name: Convert repository owner to lowercase
+        id: repo_owner
+        run: |
+          echo "owner_lc=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -62,7 +67,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/intramind-vector-service
+          images: ${{ env.REGISTRY }}/${{ steps.repo_owner.outputs.owner_lc }}/intramind-vector-service
           tags: |
             # Tag as 'latest' on main branch
             type=raw,value=latest,enable={{is_default_branch}}
@@ -119,6 +124,11 @@ jobs:
           submodules: recursive
           token: ${{ secrets.GHCR_TOKEN }}
 
+      - name: Convert repository owner to lowercase
+        id: repo_owner
+        run: |
+          echo "owner_lc=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -133,7 +143,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/intramind-api-gateway
+          images: ${{ env.REGISTRY }}/${{ steps.repo_owner.outputs.owner_lc }}/intramind-api-gateway
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=semver,pattern={{version}}
@@ -174,6 +184,11 @@ jobs:
     if: always()
 
     steps:
+      - name: Convert repository owner to lowercase
+        id: repo_owner
+        run: |
+          echo "owner_lc=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -185,16 +200,16 @@ jobs:
         if: needs.publish-vector-service.result == 'success'
         run: |
           echo "🔍 Verifying vector-service image..."
-          docker pull ${{ env.REGISTRY }}/${{ github.repository_owner }}/intramind-vector-service:latest
-          docker inspect ${{ env.REGISTRY }}/${{ github.repository_owner }}/intramind-vector-service:latest
+          docker pull ${{ env.REGISTRY }}/${{ steps.repo_owner.outputs.owner_lc }}/intramind-vector-service:latest
+          docker inspect ${{ env.REGISTRY }}/${{ steps.repo_owner.outputs.owner_lc }}/intramind-vector-service:latest
           echo "✅ Vector Service image verified"
 
       - name: Verify API Gateway image
         if: needs.publish-api-gateway.result == 'success'
         run: |
           echo "🔍 Verifying api-gateway image..."
-          docker pull ${{ env.REGISTRY }}/${{ github.repository_owner }}/intramind-api-gateway:latest
-          docker inspect ${{ env.REGISTRY }}/${{ github.repository_owner }}/intramind-api-gateway:latest
+          docker pull ${{ env.REGISTRY }}/${{ steps.repo_owner.outputs.owner_lc }}/intramind-api-gateway:latest
+          docker inspect ${{ env.REGISTRY }}/${{ steps.repo_owner.outputs.owner_lc }}/intramind-api-gateway:latest
           echo "✅ API Gateway image verified"
 
       - name: Generate summary
@@ -209,11 +224,11 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ needs.publish-vector-service.result }}" == "success" ]; then
-            echo "✅ **Vector Service:** \`${{ env.REGISTRY }}/${{ github.repository_owner }}/intramind-vector-service:latest\`" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **Vector Service:** \`${{ env.REGISTRY }}/${{ steps.repo_owner.outputs.owner_lc }}/intramind-vector-service:latest\`" >> $GITHUB_STEP_SUMMARY
           fi
 
           if [ "${{ needs.publish-api-gateway.result }}" == "success" ]; then
-            echo "✅ **API Gateway:** \`${{ env.REGISTRY }}/${{ github.repository_owner }}/intramind-api-gateway:latest\`" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **API Gateway:** \`${{ env.REGISTRY }}/${{ steps.repo_owner.outputs.owner_lc }}/intramind-api-gateway:latest\`" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -221,6 +236,6 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
           echo "# Pull images" >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ${{ env.REGISTRY }}/${{ github.repository_owner }}/intramind-vector-service:latest" >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ${{ env.REGISTRY }}/${{ github.repository_owner }}/intramind-api-gateway:latest" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.REGISTRY }}/${{ steps.repo_owner.outputs.owner_lc }}/intramind-vector-service:latest" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.REGISTRY }}/${{ steps.repo_owner.outputs.owner_lc }}/intramind-api-gateway:latest" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
