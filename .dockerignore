@@ -1,0 +1,97 @@
+# Git
+.git
+.gitignore
+.gitattributes
+.gitmodules
+
+# CI/CD
+.github
+
+# Documentation
+*.md
+docs/
+README.md
+LICENSE
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv/
+*.egg-info/
+.eggs/
+*.egg
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.dll
+*.exe
+*.pdb
+*.log
+.vs/
+.vscode/
+*.DotSettings
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Tests
+tests/
+test-results/
+*.test.js
+*.spec.js
+*.test.py
+*.spec.py
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.old
+
+# Build artifacts
+dist/
+build/
+*.tar.gz
+*.zip
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.local
+
+# Logs
+logs/
+*.log
