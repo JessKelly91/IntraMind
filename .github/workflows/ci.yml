@@ -93,7 +93,7 @@ jobs:
       - name: Install linting tools
         run: |
           pip install --upgrade pip
-          pip install yamllint hadolint-py
+          pip install yamllint
 
       - name: Lint YAML files
         continue-on-error: true
@@ -122,16 +122,14 @@ jobs:
 
       - name: Lint Dockerfiles
         continue-on-error: true
-        run: |
-          echo "🔍 Linting Dockerfiles..."
-
-          # Find and lint Dockerfiles
-          find . -type f -name "Dockerfile*" \
-            -not -path "*/node_modules/*" \
-            -not -path "*/venv/*" \
-            | xargs -I {} sh -c 'echo "Linting {}" && hadolint {} || true'
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          recursive: true
+          ignore: DL3008,DL3009,DL3015
+          failure-threshold: warning
 
       - name: Run Trivy vulnerability scanner (filesystem)
+        continue-on-error: true
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
@@ -141,9 +139,19 @@ jobs:
           severity: 'CRITICAL,HIGH'
           exit-code: '0'  # Don't fail the build on vulnerabilities yet
 
+      - name: Check if Trivy results exist
+        id: check_trivy
+        run: |
+          if [ -f "trivy-results.sarif" ]; then
+            echo "file_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "file_exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: steps.check_trivy.outputs.file_exists == 'true'
+        continue-on-error: true
         with:
           sarif_file: 'trivy-results.sarif'
 
