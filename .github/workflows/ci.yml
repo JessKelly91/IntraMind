@@ -319,7 +319,12 @@ jobs:
           echo "   (Skipping 8GB transformers model for faster CI runs)"
 
           # Use the CI-optimized docker-compose file (no transformers)
-          docker compose -f docker-compose.ci.yml up -d
+          docker compose -f docker-compose.ci.yml up -d || {
+            echo "❌ Docker compose failed to start services"
+            echo "📋 Checking container logs..."
+            docker compose -f docker-compose.ci.yml logs
+            exit 1
+          }
 
           echo "⏳ Waiting for services to be healthy..."
           sleep 15
@@ -404,7 +409,8 @@ jobs:
 
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action@v2
-        if: always()
+        if: always() && hashFiles('tests/test-results.xml') != ''
+        continue-on-error: true
         with:
           files: tests/test-results.xml
           check_name: Integration Test Results
