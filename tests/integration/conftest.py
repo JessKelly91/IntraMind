@@ -10,7 +10,7 @@ import requests
 import uuid
 from typing import List, Callable
 import time
-from config import (
+from .config import (
     API_GATEWAY_URL,
     WEAVIATE_URL,
     OLLAMA_URL,

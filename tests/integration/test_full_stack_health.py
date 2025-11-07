@@ -14,7 +14,7 @@ Tests:
 
 import pytest
 import requests
-from config import API_GATEWAY_URL, WEAVIATE_URL, OLLAMA_URL
+from .config import API_GATEWAY_URL, WEAVIATE_URL, OLLAMA_URL
 
 
 @pytest.mark.integration

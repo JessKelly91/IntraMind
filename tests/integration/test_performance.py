@@ -15,7 +15,7 @@ import requests
 import uuid
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from config import API_GATEWAY_URL
+from .config import API_GATEWAY_URL
 
 
 @pytest.mark.integration

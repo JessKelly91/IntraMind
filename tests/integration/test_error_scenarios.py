@@ -14,7 +14,7 @@ Test Categories:
 import pytest
 import requests
 import uuid
-from config import API_GATEWAY_URL
+from .config import API_GATEWAY_URL
 
 
 @pytest.mark.integration
