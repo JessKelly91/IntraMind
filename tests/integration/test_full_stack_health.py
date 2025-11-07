@@ -14,7 +14,7 @@ Tests:
 
 import pytest
 import requests
-from .config import API_GATEWAY_URL, WEAVIATE_URL, OLLAMA_URL
+from .config import API_GATEWAY_URL, WEAVIATE_URL, OLLAMA_URL, REQUIRE_OLLAMA
 
 
 @pytest.mark.integration
@@ -65,17 +65,18 @@ def test_weaviate_readiness(api_client):
 @pytest.mark.integration
 @pytest.mark.health
 @pytest.mark.smoke
+@pytest.mark.skipif(not REQUIRE_OLLAMA, reason="Ollama not required in CI environment")
 def test_ollama_availability(api_client):
     """
     Test that Ollama LLM service is running and accessible.
-    
+
     This validates:
     - Ollama service is running
     - API endpoint is accessible
     - Required for AI Agent functionality
     """
     response = api_client.get(f"{OLLAMA_URL}/api/tags", timeout=5)
-    
+
     assert response.status_code == 200, \
         f"Ollama service check failed with status {response.status_code}"
     

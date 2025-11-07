@@ -49,6 +49,7 @@ services:
     environment:
       - WEAVIATE_URL=http://weaviate:8080
       - WEAVIATE_KEY=
+      - WEAVIATE_VECTORIZER=none
       - ENVIRONMENT=CI
       - APPLICATION_ID=intramind-vector-service-ci
       - GRPC_PORT=50052
