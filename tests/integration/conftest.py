@@ -10,12 +10,14 @@ import requests
 import uuid
 from typing import List, Callable
 import time
+import os
 
 
-# Service Configuration
-API_GATEWAY_URL = "http://localhost:64536"
-WEAVIATE_URL = "http://localhost:8080"
-OLLAMA_URL = "http://localhost:11434"
+# Service Configuration (with environment variable overrides for CI)
+API_GATEWAY_URL = os.getenv("API_GATEWAY_URL", "http://localhost:64536")
+WEAVIATE_URL = os.getenv("WEAVIATE_URL", "http://localhost:8080")
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+REQUIRE_OLLAMA = os.getenv("REQUIRE_OLLAMA", "true").lower() == "true"
 
 # Timeouts
 SERVICE_CHECK_TIMEOUT = 5
@@ -26,28 +28,33 @@ API_REQUEST_TIMEOUT = 30
 def check_services_running():
     """
     Verify all required services are running before tests start.
-    
+
     This fixture runs once at the start of the test session and validates
     that all microservices are accessible. If any service is down, all tests
     will be skipped with a clear error message.
-    
+
     Services checked:
-    - API Gateway (http://localhost:64536/health)
-    - Weaviate (http://localhost:8080/v1/.well-known/ready)
-    - Ollama (http://localhost:11434/api/tags)
+    - API Gateway (configurable via API_GATEWAY_URL env var)
+    - Weaviate (configurable via WEAVIATE_URL env var)
+    - Ollama (configurable via OLLAMA_URL env var, optional if REQUIRE_OLLAMA=false)
     """
+    # Build services dict - Ollama is optional based on REQUIRE_OLLAMA
     services = {
         "API Gateway": f"{API_GATEWAY_URL}/health",
         "Weaviate": f"{WEAVIATE_URL}/v1/.well-known/ready",
-        "Ollama": f"{OLLAMA_URL}/api/tags",
     }
-    
+
+    if REQUIRE_OLLAMA:
+        services["Ollama"] = f"{OLLAMA_URL}/api/tags"
+
     print("\n" + "="*60)
     print("Checking service availability...")
+    if not REQUIRE_OLLAMA:
+        print("  (Ollama is optional - skipping check)")
     print("="*60)
-    
+
     failed_services = []
-    
+
     for name, url in services.items():
         try:
             response = requests.get(url, timeout=SERVICE_CHECK_TIMEOUT)
@@ -65,9 +72,9 @@ def check_services_running():
         except Exception as e:
             print(f"✗ {name:<20} [ERROR] {str(e)}")
             failed_services.append(f"{name} error: {str(e)}")
-    
+
     print("="*60)
-    
+
     if failed_services:
         error_msg = (
             "\n\n❌ PREREQUISITE CHECK FAILED\n\n"
@@ -77,8 +84,8 @@ def check_services_running():
             "See tests/integration/README.md for setup instructions.\n"
         )
         pytest.exit(error_msg, returncode=1)
-    
-    print("✓ All services are healthy. Starting tests...\n")
+
+    print("✓ All required services are healthy. Starting tests...\n")
 
 
 @pytest.fixture

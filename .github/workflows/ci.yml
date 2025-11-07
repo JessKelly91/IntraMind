@@ -360,7 +360,7 @@ jobs:
           check_health "Weaviate" "http://localhost:8080/v1/.well-known/ready"
 
           # Check API Gateway
-          check_health "API Gateway" "http://localhost:5000/health/liveness"
+          check_health "API Gateway" "http://localhost:5000/health"
 
           echo "✅ All services are ready!"
 
@@ -383,6 +383,10 @@ jobs:
           pip install pytest pytest-cov pytest-html
           
       - name: Run integration tests
+        env:
+          API_GATEWAY_URL: http://localhost:5000
+          WEAVIATE_URL: http://localhost:8080
+          REQUIRE_OLLAMA: false
         run: |
           echo "🧪 Running integration tests..."
           cd tests
