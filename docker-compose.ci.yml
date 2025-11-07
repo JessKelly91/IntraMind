@@ -1,8 +1,6 @@
 # CI-optimized Docker Compose Configuration
 # This skips the heavy transformers model to speed up CI runs
 
-version: '3.8'
-
 services:
   # ============================================
   # Weaviate - Without Vectorizer (CI Mode)
