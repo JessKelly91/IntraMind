@@ -387,8 +387,10 @@ jobs:
           API_GATEWAY_URL: http://localhost:5000
           WEAVIATE_URL: http://localhost:8080
           REQUIRE_OLLAMA: false
+          VECTORIZER_ENABLED: false
         run: |
           echo "🧪 Running integration tests..."
+          echo "   (Skipping semantic search tests - no vectorizer in CI)"
           cd tests
 
           pytest integration/ \

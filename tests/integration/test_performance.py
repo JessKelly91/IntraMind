@@ -15,7 +15,7 @@ import requests
 import uuid
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from .config import API_GATEWAY_URL
+from .config import API_GATEWAY_URL, VECTORIZER_ENABLED
 
 
 @pytest.mark.integration
@@ -179,10 +179,11 @@ def test_batch_insert_performance(api_client, unique_collection_name, cleanup_co
 @pytest.mark.integration
 @pytest.mark.performance
 @pytest.mark.slow
+@pytest.mark.skipif(not VECTORIZER_ENABLED, reason="Semantic search requires vectorizer")
 def test_search_performance(api_client, unique_collection_name, cleanup_collection, wait_for_indexing):
     """
     Test search performance with indexed documents.
-    
+
     Validates that search remains fast as document count grows.
     """
     cleanup_collection(unique_collection_name)

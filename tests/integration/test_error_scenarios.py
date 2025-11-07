@@ -14,7 +14,7 @@ Test Categories:
 import pytest
 import requests
 import uuid
-from .config import API_GATEWAY_URL
+from .config import API_GATEWAY_URL, VECTORIZER_ENABLED
 
 
 @pytest.mark.integration
@@ -342,6 +342,7 @@ def test_invalid_json_payload(api_client):
 
 @pytest.mark.integration
 @pytest.mark.error
+@pytest.mark.skipif(not VECTORIZER_ENABLED, reason="Search tests require vectorizer")
 def test_search_without_query(api_client, unique_collection_name, cleanup_collection):
     """
     Test that search without a query parameter is rejected.
@@ -374,6 +375,7 @@ def test_search_without_query(api_client, unique_collection_name, cleanup_collec
 
 @pytest.mark.integration
 @pytest.mark.error
+@pytest.mark.skipif(not VECTORIZER_ENABLED, reason="Search tests require vectorizer")
 def test_search_without_collection(api_client):
     """
     Test that search without specifying a collection is rejected.
@@ -396,6 +398,7 @@ def test_search_without_collection(api_client):
 
 @pytest.mark.integration
 @pytest.mark.error
+@pytest.mark.skipif(not VECTORIZER_ENABLED, reason="Search tests require vectorizer")
 def test_search_invalid_limit(api_client, unique_collection_name, cleanup_collection):
     """
     Test that search with invalid limit values is handled appropriately.

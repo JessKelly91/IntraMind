@@ -10,7 +10,7 @@ Each test represents a realistic use case with full CRUD operations.
 import pytest
 import requests
 import time
-from .config import API_GATEWAY_URL
+from .config import API_GATEWAY_URL, VECTORIZER_ENABLED
 
 
 @pytest.mark.integration
@@ -202,10 +202,11 @@ def test_batch_insert_e2e(api_client, unique_collection_name, cleanup_collection
 
 @pytest.mark.integration
 @pytest.mark.e2e
+@pytest.mark.skipif(not VECTORIZER_ENABLED, reason="Semantic search requires vectorizer")
 def test_search_workflow_e2e(api_client, unique_collection_name, cleanup_collection, wait_for_indexing):
     """
     Test semantic search workflow: Insert documents → Search → Verify results.
-    
+
     This validates the core search functionality works end-to-end.
     """
     cleanup_collection(unique_collection_name)
