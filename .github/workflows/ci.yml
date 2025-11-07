@@ -380,7 +380,8 @@ jobs:
           cd tests
           pip install --upgrade pip
           pip install -r requirements.txt
-
+          pip install pytest pytest-cov pytest-html
+          
       - name: Run integration tests
         run: |
           echo "🧪 Running integration tests..."
