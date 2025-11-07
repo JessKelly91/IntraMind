@@ -10,7 +10,7 @@ Each test represents a realistic use case with full CRUD operations.
 import pytest
 import requests
 import time
-from conftest import API_GATEWAY_URL
+from config import API_GATEWAY_URL
 
 
 @pytest.mark.integration
