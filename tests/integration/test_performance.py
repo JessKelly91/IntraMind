@@ -15,9 +15,7 @@ import requests
 import uuid
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
-# Service endpoints
-API_GATEWAY_URL = "http://localhost:64536"
+from conftest import API_GATEWAY_URL
 
 
 @pytest.mark.integration

@@ -14,11 +14,7 @@ Tests:
 
 import pytest
 import requests
-
-# Service endpoints (defined in conftest.py, accessible here)
-API_GATEWAY_URL = "http://localhost:64536"
-WEAVIATE_URL = "http://localhost:8080"
-OLLAMA_URL = "http://localhost:11434"
+from conftest import API_GATEWAY_URL, WEAVIATE_URL, OLLAMA_URL
 
 
 @pytest.mark.integration

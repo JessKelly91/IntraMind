@@ -10,9 +10,7 @@ Each test represents a realistic use case with full CRUD operations.
 import pytest
 import requests
 import time
-
-# Service endpoints
-API_GATEWAY_URL = "http://localhost:64536"
+from conftest import API_GATEWAY_URL
 
 
 @pytest.mark.integration
