@@ -48,10 +48,11 @@
 
 4. **integration-tests** - Platform integration testing
    - Loads built Docker images
-   - Starts services with docker-compose
+   - Starts services with docker-compose (CI mode - no vectorizer)
    - Waits for health checks
    - Runs pytest integration test suite (40 tests)
    - Generates test reports and coverage
+   - **Note:** CI runs without text2vec-transformers (8GB model) for speed
 
 5. **generate-summary** - Build summary
    - Aggregates job results
@@ -322,5 +323,38 @@ When adding new workflows:
 
 ---
 
-**Last Updated:** November 6, 2025
+## CI Environment Configuration
+
+### Vectorizer Configuration in CI
+
+The CI environment is optimized for speed and uses a **no-vectorizer** configuration:
+
+**docker-compose.ci.yml:**
+```yaml
+weaviate:
+  environment:
+    DEFAULT_VECTORIZER_MODULE: 'none'
+    ENABLE_MODULES: ''
+
+vector-service:
+  environment:
+    - ENVIRONMENT=CI
+    - DEFAULT_VECTORIZER=none
+    - VECTORIZER_ENABLED=false
+```
+
+This configuration:
+- ✅ Skips the 8GB text2vec-transformers model download
+- ✅ Reduces CI run time by ~5 minutes
+- ✅ Tests core functionality without semantic search
+- ✅ Semantic search tests are automatically skipped in CI
+
+**Local Development** (with full vectorizer support):
+```bash
+docker compose up  # Uses text2vec-transformers by default
+```
+
+---
+
+**Last Updated:** November 9, 2025
 **Maintained By:** IntraMind Platform Team

@@ -1,6 +1,8 @@
 # CI-optimized Docker Compose Configuration
 # This skips the heavy transformers model to speed up CI runs
 
+version: '3.8'
+
 services:
   # ============================================
   # Weaviate - Without Vectorizer (CI Mode)
@@ -49,10 +51,11 @@ services:
     environment:
       - WEAVIATE_URL=http://weaviate:8080
       - WEAVIATE_KEY=
-      - WEAVIATE_VECTORIZER=none
       - ENVIRONMENT=CI
       - APPLICATION_ID=intramind-vector-service-ci
       - GRPC_PORT=50052
+      - DEFAULT_VECTORIZER=none
+      - VECTORIZER_ENABLED=false
     networks:
       - intramind-network
     depends_on:
@@ -83,7 +86,7 @@ services:
       vector-service:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/health/liveness || exit 1"]
       interval: 5s
       timeout: 3s
       retries: 5
