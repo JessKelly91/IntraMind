@@ -68,11 +68,15 @@ dotnet run --project src/IntraMind.ApiGateway
 
 ### Service Endpoints
 
-Tests expect services at these URLs:
+Tests expect services at these URLs (configurable via environment variables):
 
-- **API Gateway**: http://localhost:64536
-- **Weaviate**: http://localhost:8080
-- **Ollama**: http://localhost:11434
+| Service | Default Local | CI Environment | Environment Variable |
+|---------|---------------|----------------|---------------------|
+| **API Gateway** | http://localhost:64536 | http://localhost:5000 | `API_GATEWAY_URL` |
+| **Weaviate** | http://localhost:8080 | http://localhost:8080 | `WEAVIATE_URL` |
+| **Ollama** | http://localhost:11434 | (not used) | `OLLAMA_URL` |
+
+**Note:** CI uses `docker-compose.ci.yml` which maps services to different ports and disables the vectorizer for faster testing.
 
 ### Python Dependencies
 
@@ -320,30 +324,78 @@ Expected performance characteristics (may vary by hardware):
 
 ## CI/CD Integration
 
-To run these tests in CI/CD:
+### CI Environment Configuration
 
-1. Start all services (using Docker Compose recommended)
-2. Wait for services to be healthy
-3. Run tests with appropriate markers
-4. Generate reports
+The test suite supports running in **CI mode without vectorizer** for faster test execution. This is automatically configured in the GitHub Actions CI pipeline.
 
-Example GitHub Actions snippet:
+**Environment Variables:**
+
+| Variable | CI Value | Local Value | Purpose |
+|----------|----------|-------------|---------|
+| `VECTORIZER_ENABLED` | `false` | `true` | Controls whether vectorizer/semantic search tests run |
+| `REQUIRE_OLLAMA` | `false` | `true` | Controls whether Ollama is required |
+
+**When `VECTORIZER_ENABLED=false`:**
+- ✅ Collections are created with `vectorizer="none"` 
+- ✅ Core functionality tests run (34 tests)
+- ⏭️ Semantic search tests are automatically skipped (6 tests)
+- ⚡ CI runs ~5 minutes faster (skips 8GB transformers model download)
+
+**Tests Skipped in CI Mode:**
+- `test_search_workflow_e2e` - Requires vectorizer for semantic search
+- `test_search_without_query` - Search validation test
+- `test_search_without_collection` - Search validation test  
+- `test_search_invalid_limit` - Search validation test
+- `test_search_performance` - Search performance benchmarking
+- Search operation in `test_end_to_end_workflow_performance` - conditionally skipped
+
+### Running Tests in CI Mode Locally
+
+To test CI configuration locally:
+
+```bash
+# Set environment variables
+export VECTORIZER_ENABLED=false
+export REQUIRE_OLLAMA=false
+
+# Start services in CI mode (no vectorizer)
+docker compose -f docker-compose.ci.yml up -d
+
+# Run tests
+cd tests
+pytest integration/ -v
+
+# Expected: 34 passed, 6 skipped
+```
+
+### GitHub Actions Integration
+
+Example GitHub Actions workflow:
 
 ```yaml
-- name: Start services
-  run: docker-compose up -d
+- name: Start services (CI mode - no vectorizer)
+  run: docker compose -f docker-compose.ci.yml up -d
   
 - name: Wait for services
   run: |
-    timeout 60 bash -c 'until curl -f http://localhost:64536/health; do sleep 2; done'
+    timeout 60 bash -c 'until curl -f http://localhost:5000/health; do sleep 2; done'
     timeout 60 bash -c 'until curl -f http://localhost:8080/v1/.well-known/ready; do sleep 2; done'
 
 - name: Run integration tests
+  env:
+    API_GATEWAY_URL: http://localhost:5000
+    WEAVIATE_URL: http://localhost:8080
+    REQUIRE_OLLAMA: false
+    VECTORIZER_ENABLED: false
   run: |
     cd tests
     pip install -r requirements.txt
-    pytest integration/ -v -m "not slow" --html=report.html
+    pytest integration/ -v --html=report.html
+    
+# Expected Results: 34 passed, 6 skipped
 ```
+
+See `.github/workflows/ci.yml` for the complete CI configuration.
 
 ## Contributing
 

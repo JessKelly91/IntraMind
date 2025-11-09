@@ -183,6 +183,25 @@ git push
 - [ ] Authentication & authorization
 - [ ] Monitoring & observability
 
+## 🧪 Testing
+
+### Integration Tests
+
+Platform-wide integration tests are located in `tests/integration/`:
+
+```bash
+# Run all integration tests
+cd tests
+pip install -r requirements.txt
+pytest integration/ -v
+
+# Expected: 34 passed, 6 skipped (in CI mode without vectorizer)
+```
+
+**CI Mode:** The CI pipeline uses `docker-compose.ci.yml` which runs without the vectorizer (no 8GB model download) for faster testing. Semantic search tests are automatically skipped in CI.
+
+See [Integration Tests README](./tests/integration/README.md) for detailed testing documentation.
+
 ## 📚 Documentation
 
 ### Getting Started
@@ -194,6 +213,11 @@ git push
 - **[API Reference](./docs/API_REFERENCE.md)** - Complete API documentation for all services
 - **[Submodule Guide](./docs/SUBMODULE_GUIDE.md)** - Working with Git submodules
 - **[Architecture Overview](./docs/ARCHITECTURE.md)** - System design and component details
+- **[Integration Tests](./tests/integration/README.md)** - Platform-wide integration testing
+
+### CI/CD
+- **[GitHub Workflows](./.github/README.md)** - CI/CD pipeline documentation
+- **[CI Configuration](./docker-compose.ci.yml)** - Optimized CI environment setup
 
 ### Project Management
 - **[Project Roadmap](./docs/PROJECT_ROADMAP.md)** - Development progress and plans
