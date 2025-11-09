@@ -399,19 +399,22 @@ def test_end_to_end_workflow_performance(api_client, unique_collection_name, cle
     
     wait_for_indexing(2.0)
     
-    # 3. Search
-    start = time.time()
-    response = api_client.post(
-        f"{API_GATEWAY_URL}/v1/search",
-        json={
-            "query": "Python programming",
-            "collectionName": unique_collection_name,
-            "limit": 5
-        },
-        timeout=10
-    )
-    assert response.status_code == 200
-    workflow_times['search'] = time.time() - start
+    # 3. Search (skip in CI when vectorizer is disabled)
+    if VECTORIZER_ENABLED:
+        start = time.time()
+        response = api_client.post(
+            f"{API_GATEWAY_URL}/v1/search",
+            json={
+                "query": "Python programming",
+                "collectionName": unique_collection_name,
+                "limit": 5
+            },
+            timeout=10
+        )
+        assert response.status_code == 200
+        workflow_times['search'] = time.time() - start
+    else:
+        print("  (Skipping search - no vectorizer in CI)")
     
     # 4. Get document
     start = time.time()
