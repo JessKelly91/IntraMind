@@ -7,3 +7,6 @@
 [submodule "api-gateway"]
 	path = api-gateway
 	url = https://github.com/JessKelly91/intramind-api-gateway.git
+[submodule "web-ui"]
+	path = web-ui
+	url = https://github.com/JessKelly91/intramind-web-ui.git
