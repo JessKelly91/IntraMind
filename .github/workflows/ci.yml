@@ -430,12 +430,183 @@ jobs:
           docker compose -f docker-compose.ci.yml logs
 
   # ============================================
-  # Job 5: Generate Summary
+  # Job 5: RAG Evals (Ragas, warning-only)
+  # ============================================
+  # Step 2 of Free RAI Stack. Runs Ragas faithfulness / answer_relevancy /
+  # context_precision / context_recall against a fixture corpus, using a local
+  # Ollama model as the LLM judge so this stays $0 to run.
+  #
+  # Mode: warning-only by default (RAGAS_ENFORCE_THRESHOLDS=false). Real asserts
+  # are still exercised inside the suite (they xfail instead of failing). To
+  # turn this into a hard PR gate, set the env var below to "true".
+  rag-evals:
+    name: RAG Evals (warning-only)
+    runs-on: ubuntu-latest
+    needs: [integration-tests]
+    if: always() && needs.integration-tests.result == 'success'
+    continue-on-error: true  # warning-only: never blocks the PR while we tune
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Ollama
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          # start the daemon in the background
+          ollama serve &
+          # wait for it to be ready
+          for i in {1..30}; do
+            if curl -fsS http://localhost:11434/api/tags > /dev/null; then
+              echo "Ollama is up"
+              break
+            fi
+            sleep 2
+          done
+
+      - name: Cache Ollama models
+        uses: actions/cache@v3
+        with:
+          path: ~/.ollama/models
+          key: ollama-${{ runner.os }}-llama3.1-8b
+          restore-keys: |
+            ollama-${{ runner.os }}-
+
+      - name: Pull Ollama judge model
+        run: |
+          ollama pull "${RAGAS_JUDGE_MODEL:-llama3.1:8b}"
+        env:
+          RAGAS_JUDGE_MODEL: llama3.1:8b
+
+      - name: Download Docker images
+        uses: actions/download-artifact@v4
+        with:
+          pattern: docker-image-*
+          path: /tmp/docker-images
+
+      - name: Load Docker images
+        run: |
+          for image in /tmp/docker-images/docker-image-*/*.tar.gz; do
+            docker load < "$image"
+          done
+          docker tag intramind-vector-service:ci-${{ github.sha }} intramind-vector-service:ci-latest || true
+          docker tag intramind-api-gateway:ci-${{ github.sha }} intramind-api-gateway:ci-latest || true
+
+      - name: Start platform services (CI compose)
+        run: |
+          docker compose -f docker-compose.ci.yml up -d
+          # Wait for Weaviate + API Gateway to be healthy
+          for url in "http://localhost:8080/v1/.well-known/ready" "http://localhost:5000/health"; do
+            for i in {1..30}; do
+              if curl -fsS "$url" > /dev/null; then
+                echo "Service ready: $url"
+                break
+              fi
+              sleep 5
+            done
+          done
+
+      - name: Install ai-agent dependencies
+        working-directory: ai-agent
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-html
+          # spaCy model needed by Presidio (Step 3) so the PII redaction node
+          # in the ingestion workflow runs end-to-end during the eval seed.
+          python -m spacy download en_core_web_lg
+
+      - name: Run Ragas eval driver (seed corpus + score)
+        working-directory: ai-agent
+        env:
+          PYTHONPATH: src
+          API_GATEWAY_URL: http://localhost:5000
+          OLLAMA_BASE_URL: http://localhost:11434
+          RAGAS_JUDGE_MODEL: llama3.1:8b
+          # ANTHROPIC_API_KEY / OPENAI_API_KEY intentionally unset - judge runs on Ollama.
+          PRIMARY_LLM_PROVIDER: ollama
+          ROUTER_LLM_PROVIDER: ollama
+        run: |
+          python -m tests.eval.ragas_eval --collection eval_corpus --seed --judge-model "$RAGAS_JUDGE_MODEL"
+
+      - name: Run Ragas threshold tests (warning-only)
+        working-directory: ai-agent
+        env:
+          PYTHONPATH: src
+          # >>> Flip this single env var to "true" to enforce thresholds and
+          # >>> turn this job into a hard PR gate. (Also remove
+          # >>> `continue-on-error: true` above.)
+          RAGAS_ENFORCE_THRESHOLDS: "false"
+        run: |
+          pytest tests/eval/test_ragas_thresholds.py -v \
+            --html=ragas-report.html --self-contained-html \
+            --junit-xml=ragas-results.xml
+
+      - name: Upload Ragas report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ragas-eval-report
+          path: |
+            ai-agent/ragas-report.html
+            ai-agent/ragas-results.xml
+            ai-agent/tests/eval/results/latest.json
+          retention-days: 30
+
+      - name: Comment Ragas scores on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = 'ai-agent/tests/eval/results/latest.json';
+            if (!fs.existsSync(path)) {
+              core.warning('No Ragas results to publish');
+              return;
+            }
+            const payload = JSON.parse(fs.readFileSync(path, 'utf8'));
+            const a = payload.aggregate || {};
+            const fmt = (v) => (v === undefined ? 'n/a' : Number(v).toFixed(3));
+            const body = [
+              '### RAG Evals (warning-only)',
+              '',
+              `_Judge model: \`${payload.judge_model}\` - ${payload.num_questions} questions_`,
+              '',
+              '| Metric | Score |',
+              '|---|---|',
+              `| faithfulness | ${fmt(a.faithfulness)} |`,
+              `| answer_relevancy | ${fmt(a.answer_relevancy)} |`,
+              `| context_precision | ${fmt(a.context_precision)} |`,
+              `| context_recall | ${fmt(a.context_recall)} |`,
+              '',
+              '_Set `RAGAS_ENFORCE_THRESHOLDS=true` in `.github/workflows/ci.yml` to convert this from warning-only into a blocking check._'
+            ].join('\n');
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
+
+      - name: Stop platform services
+        if: always()
+        run: docker compose -f docker-compose.ci.yml down -v
+
+  # ============================================
+  # Job 6: Generate Summary
   # ============================================
   generate-summary:
     name: Generate Summary
     runs-on: ubuntu-latest
-    needs: [validate-submodules, lint-and-security, build-services, integration-tests]
+    needs: [validate-submodules, lint-and-security, build-services, integration-tests, rag-evals]
     if: always()
 
     steps:
@@ -468,6 +639,7 @@ jobs:
           echo "| Lint & Security | ${{ needs.lint-and-security.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Build Services | ${{ needs.build-services.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Integration Tests | ${{ needs.integration-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| RAG Evals (warning-only) | ${{ needs.rag-evals.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "## 🐳 Docker Images Built" >> $GITHUB_STEP_SUMMARY

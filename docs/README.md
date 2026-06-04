@@ -25,6 +25,22 @@ This directory contains detailed documentation for the IntraMind platform.
   - Future roadmap
   - Architecture decisions
 
+### Responsible AI
+
+The Free RAI Stack ships six free, open-source capabilities. See
+[`ai-agent/README.md`](../ai-agent/README.md#-responsible-ai) for the
+end-to-end overview.
+
+- **Model and Dataset Cards** - [`cards/`](./cards/)
+  - [`MODEL_CARD_router.md`](./cards/MODEL_CARD_router.md) - query router (Llama 3.2 3B)
+  - [`MODEL_CARD_synthesizer.md`](./cards/MODEL_CARD_synthesizer.md) - response synthesizer (Anthropic / OpenAI / Ollama)
+  - [`MODEL_CARD_embedder.md`](./cards/MODEL_CARD_embedder.md) - embedder (`all-MiniLM-L6-v2` via `text2vec-transformers`)
+  - [`MODEL_CARD_safety.md`](./cards/MODEL_CARD_safety.md) - output safety (Llama Guard 3)
+  - [`DATASETS.md`](./cards/DATASETS.md) - inventory + provenance schema for ingested corpora
+- **Drift reports** - [`drift/`](./drift/) (auto-PR weekly via `.github/workflows/drift-report.yml`)
+- **PII policy** - redact-on-ingest with stable tokenized pseudonyms (see the AI Agent README for full rationale)
+- **Output safety policy** - hard-block flagged outputs and substitute a templated fallback (see `MODEL_CARD_safety.md`)
+
 ### Internal Notes
 
 - **SETUP_SUMMARY.md** *(gitignored)* - Development notes for Phase 5.1 testing

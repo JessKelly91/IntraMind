@@ -464,6 +464,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.build-check-venv/
 
 # Spyder project settings
 .spyderproject

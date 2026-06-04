@@ -1,0 +1,96 @@
+name: Weekly Drift Report
+
+# Step 5 of the Free RAI Stack. Generates an Evidently HTML drift report
+# every Monday morning UTC and opens a PR with the new report under
+# docs/drift/. Runs entirely on free GitHub-hosted runners + the same
+# fixture corpus the CI rag-evals job uses, so monthly cost stays at $0.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"  # 06:00 UTC every Monday
+  workflow_dispatch:
+    inputs:
+      collection:
+        description: "Collection to probe"
+        required: false
+        default: "eval_corpus"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  build-drift-report:
+    name: Build & open drift PR
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install ai-agent dependencies
+        working-directory: ai-agent
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Start platform services (CI compose)
+        run: |
+          docker compose -f docker-compose.ci.yml up -d
+          for url in "http://localhost:8080/v1/.well-known/ready" "http://localhost:5000/health"; do
+            for i in {1..30}; do
+              if curl -fsS "$url" > /dev/null; then
+                echo "Service ready: $url"
+                break
+              fi
+              sleep 5
+            done
+          done
+
+      - name: Seed eval corpus (so drift has data)
+        working-directory: ai-agent
+        env:
+          PYTHONPATH: src
+          API_GATEWAY_URL: http://localhost:5000
+          PRIMARY_LLM_PROVIDER: ollama
+          ROUTER_LLM_PROVIDER: ollama
+          COLLECTION: ${{ github.event.inputs.collection || 'eval_corpus' }}
+        run: |
+          python -m tests.eval.ragas_eval --seed --collection "${COLLECTION}" || true
+
+      - name: Generate drift report
+        working-directory: ai-agent
+        env:
+          PYTHONPATH: src
+          API_GATEWAY_URL: http://localhost:5000
+          COLLECTION: ${{ github.event.inputs.collection || 'eval_corpus' }}
+        run: |
+          python scripts/drift_report.py \
+            --collection "${COLLECTION}" \
+            --output-dir ../docs/drift
+
+      - name: Stop platform services
+        if: always()
+        run: docker compose -f docker-compose.ci.yml down -v
+
+      - name: Open PR with new drift report
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GHCR_TOKEN }}
+          branch: drift-report/auto-${{ github.run_id }}
+          commit-message: "chore(drift): weekly Evidently drift report"
+          title: "Weekly drift report"
+          body: |
+            Automated weekly Evidently drift report (Step 5 of the Free RAI Stack).
+
+            See `docs/drift/index.md` for the full history of reports.
+          add-paths: |
+            docs/drift/**

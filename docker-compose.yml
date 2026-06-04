@@ -99,6 +99,29 @@ services:
       start_period: 40s
 
   # ============================================
+  # Observability - Phoenix (self-hosted RAI tracing UI)
+  # ============================================
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: intramind-phoenix
+    restart: unless-stopped
+    ports:
+      - "6006:6006"     # Phoenix UI + OTLP HTTP collector
+      - "4317:4317"     # OTLP gRPC collector
+    environment:
+      - PHOENIX_WORKING_DIR=/mnt/data
+    volumes:
+      - phoenix_data:/mnt/data
+    networks:
+      - intramind-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:6006/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ============================================
   # Gateway Layer - REST API Gateway
   # ============================================
   api-gateway:
@@ -135,6 +158,9 @@ volumes:
   weaviate_data:
     driver: local
     name: intramind_weaviate_data
+  phoenix_data:
+    driver: local
+    name: intramind_phoenix_data
 
 # ============================================
 # Networks
