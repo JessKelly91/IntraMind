@@ -1,6 +1,12 @@
-# GitHub Configuration
+# GitHub Workflows & CI/CD Configuration
 
 > CI/CD workflows and repository configuration for IntraMind
+
+> **Note:** this file used to be `.github/README.md`. It was renamed to
+> `WORKFLOWS.md` because GitHub gives `.github/README.md` precedence over the
+> root `README.md` when rendering the repo's main page - which meant this
+> document was unintentionally hiding the project's actual landing-page
+> README. See [the root README](../README.md) for the project overview.
 
 ## Directory Structure
 
@@ -8,9 +14,10 @@
 .github/
 ├── workflows/
 │   ├── ci.yml                # Main CI pipeline
+│   ├── drift-report.yml      # Weekly Evidently drift report (Free RAI Stack, Step 5)
 │   └── docker-publish.yml    # Docker image publishing
-├── CODEOWNERS               # Code ownership definitions
-└── README.md                # This file
+├── CODEOWNERS                # Code ownership definitions
+└── WORKFLOWS.md              # This file
 ```
 
 ---

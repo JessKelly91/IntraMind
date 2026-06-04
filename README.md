@@ -216,7 +216,7 @@ See [Integration Tests README](./tests/integration/README.md) for detailed testi
 - **[Integration Tests](./tests/integration/README.md)** - Platform-wide integration testing
 
 ### CI/CD
-- **[GitHub Workflows](./.github/README.md)** - CI/CD pipeline documentation
+- **[GitHub Workflows](./.github/WORKFLOWS.md)** - CI/CD pipeline documentation
 - **[CI Configuration](./docker-compose.ci.yml)** - Optimized CI environment setup
 
 ### Project Management
