@@ -46,7 +46,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          token: ${{ secrets.GHCR_TOKEN }}
+          # token: ${{ secrets.GHCR_TOKEN }}
 
       - name: Convert repository owner to lowercase
         id: repo_owner
@@ -122,7 +122,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          token: ${{ secrets.GHCR_TOKEN }}
+          # token: ${{ secrets.GHCR_TOKEN }}
 
       - name: Convert repository owner to lowercase
         id: repo_owner
