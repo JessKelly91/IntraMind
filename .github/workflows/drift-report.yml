@@ -42,6 +42,18 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Build CI service images
+        run: |
+          docker build \
+            --tag intramind-vector-service:ci-latest \
+            --file vector-db-service/Dockerfile \
+            vector-db-service
+
+          docker build \
+            --tag intramind-api-gateway:ci-latest \
+            --file api-gateway/src/IntraMind.ApiGateway/Dockerfile \
+            api-gateway
+
       - name: Start platform services (CI compose)
         run: |
           docker compose -f docker-compose.ci.yml up -d
