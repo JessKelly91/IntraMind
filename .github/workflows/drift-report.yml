@@ -96,7 +96,7 @@ jobs:
       - name: Open PR with new drift report
         uses: peter-evans/create-pull-request@v6
         with:
-          token: ${{ secrets.GHCR_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           branch: drift-report/auto-${{ github.run_id }}
           commit-message: "chore(drift): weekly Evidently drift report"
           title: "Weekly drift report"
