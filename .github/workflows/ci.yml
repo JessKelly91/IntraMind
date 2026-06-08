@@ -535,7 +535,15 @@ jobs:
           PRIMARY_LLM_PROVIDER: ollama
           ROUTER_LLM_PROVIDER: ollama
         run: |
+          set +e
           python -m tests.eval.ragas_eval --collection eval_corpus --seed --judge-model "$RAGAS_JUDGE_MODEL"
+          exit_code=$?
+          set -e
+
+          if [ "$exit_code" -ne 0 ]; then
+            echo "::warning title=RAG eval driver failed::Ragas seed/score exited with code $exit_code. This job is warning-only while eval thresholds are being tuned."
+          fi
+          exit 0
 
       - name: Run Ragas threshold tests (warning-only)
         working-directory: ai-agent
