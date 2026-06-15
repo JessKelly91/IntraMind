@@ -1,10 +1,10 @@
 # IntraMind Documentation
 
-This directory contains detailed documentation for the IntraMind platform.
+This directory contains the public documentation for the IntraMind platform. It is organized so GitHub visitors see the polished overview and setup material first, with maintainer/process docs kept lower on the page.
 
 ## 📚 Documentation Index
 
-### Core Documentation
+### Public Core Docs
 
 - **[DOCKER_SETUP.md](./DOCKER_SETUP.md)** - Complete Docker Compose setup guide
   - Prerequisites and installation
@@ -24,6 +24,10 @@ This directory contains detailed documentation for the IntraMind platform.
   - Prompt Registry auth, seed, label, eval, audit, and history endpoints
   - Development auth and production recommendations
 
+- **[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)** - Local deployment, production caveats, health checks, and operational notes
+
+- **[USER_GUIDE.md](./USER_GUIDE.md)** - End-to-end user scenarios and feature walkthroughs
+
 ### Responsible AI
 
 The Free RAI Stack ships six free, open-source capabilities. See
@@ -40,13 +44,6 @@ end-to-end overview.
 - **PII policy** - redact-on-ingest with stable tokenized pseudonyms (see the AI Agent README for full rationale)
 - **Output safety policy** - hard-block flagged outputs and substitute a templated fallback (see `MODEL_CARD_safety.md`)
 
-### Internal Notes
-
-- **SETUP_SUMMARY.md** *(gitignored)* - Development notes for Phase 5.1 testing
-  - Local file only, not committed to git
-  - Testing checklist and validation steps
-  - Can be deleted after Phase 5.1 is complete
-
 ## 🔗 Quick Links
 
 - [Main README](../README.md) - Platform overview and quick start
@@ -55,6 +52,26 @@ end-to-end overview.
 - [AI Agent Docs](../ai-agent/README.md)
 - [Prompt Registry Docs](../prompt-registry/README.md)
 - [Web UI Docs](../web-ui/README.md)
+
+## Maintainer Docs
+
+These docs are public, but they are aimed at contributors and maintainers rather than first-time users:
+
+- [Submodule Guide](./SUBMODULE_GUIDE.md)
+- [Platform Integration Tests](../tests/integration/README.md)
+- [GitHub Workflows](../.github/WORKFLOWS.md)
+- [AI Agent Workflows](../ai-agent/docs/WORKFLOWS.md)
+- [AI Agent Observability](../ai-agent/docs/OBSERVABILITY.md)
+- [AI Agent Conversation Memory](../ai-agent/docs/CONVERSATION_MEMORY.md)
+- [API Gateway Usage Guide](../api-gateway/docs/api-usage-guide.md)
+- [API Gateway Metadata Schema](../api-gateway/docs/metadata-schema.md)
+
+## Archived History
+
+Historical phase notes and stale narrative snapshots are archived below their owning service when they are useful for project history but not current public guidance:
+
+- [Web UI Phase History](../web-ui/docs/archive/PHASE_HISTORY.md)
+- [AI Agent Portfolio Writeup Archive Note](../ai-agent/docs/archive/PORTFOLIO_WRITEUP.md)
 
 ## 🚀 Getting Started
 
