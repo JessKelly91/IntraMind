@@ -22,12 +22,14 @@ IntraMind is a microservices-based AI platform that enables semantic search acro
 graph TB
     subgraph "Client Layer"
         CLI[CLI Interface]
+        WIDGET[Web UI Widget<br/>Preact + FastAPI backend]
         API_USER[API Users]
     end
     
     subgraph "AI Orchestration Layer"
         AGENT[AI Agent<br/>LangGraph Workflows]
         OLLAMA[Ollama LLM<br/>Local Routing]
+        PROMPTS[Prompt Registry<br/>FastAPI + Postgres<br/>Port 8010]
     end
     
     subgraph "API Layer"
@@ -38,11 +40,18 @@ graph TB
         VECTOR[Vector Service<br/>Python gRPC<br/>Port 50052]
         WEAVIATE[(Weaviate<br/>Vector DB<br/>Port 8080)]
     end
+
+    subgraph "Observability"
+        PHOENIX[Phoenix<br/>Traces + RAI observability<br/>Port 6006]
+    end
     
     CLI --> AGENT
+    WIDGET --> AGENT
     API_USER --> GATEWAY
     AGENT --> GATEWAY
+    AGENT --> PROMPTS
     AGENT -.LLM Calls.-> OLLAMA
+    AGENT -.OTEL.-> PHOENIX
     GATEWAY --> VECTOR
     VECTOR --> WEAVIATE
     
@@ -59,6 +68,7 @@ graph TB
 3. **Hybrid LLM Strategy**: Local Ollama for routing (free), cloud LLMs for synthesis (quality)
 4. **gRPC Internal Communication**: Efficient binary protocol between API Gateway and Vector Service
 5. **REST External API**: Standard HTTP/JSON for client-facing API
+6. **Runtime Prompt Governance**: Prompt Registry labels promote or roll back agent prompts without redeploy, while the baked-in code registry remains the fallback
 
 ---
 
@@ -80,6 +90,8 @@ graph TB
 **Key Components**:
 - `workflows/search_workflow.py` - Search orchestration
 - `workflows/ingestion_workflow.py` - Document processing
+- `prompts/registry.py` - Baked-in prompt registry and lock fingerprints
+- `prompts/client.py` - Runtime prompt lookup with TTL cache and fallback
 - `agent/main.py` - IntraMindAgent interface
 - `cli/main.py` - Command-line interface
 - `tools/api_client.py` - API Gateway client
@@ -149,6 +161,36 @@ GET    /health                 - Health check
 
 ---
 
+### 5. Prompt Registry (FastAPI + Postgres)
+**Repository**: `prompt-registry/`  
+**Technology**: FastAPI, async SQLAlchemy, Alembic, Postgres  
+**Port**: 8010 (HTTP), 5433 (local Postgres host mapping)
+
+**Responsibilities**:
+- Store versioned prompt templates and metadata
+- Resolve active prompt versions by label (`production`, `candidate`, `staging`)
+- Promote or roll back labels with audit logging
+- Attach Ragas eval results to prompt versions
+- Seed initial prompts from `ai-agent/src/prompts/registry.py`
+- Serve a minimal static admin UI
+
+**Current caveats**:
+- Local compose can auto-create schema; production-style deploys should run Alembic migrations explicitly
+- The seed path requires access to the AI Agent code registry, provided locally through a read-only compose mount
+
+---
+
+### 6. Phoenix (Observability)
+**Technology**: Arize Phoenix OSS, OpenTelemetry/OpenInference  
+**Port**: 6006 (UI + OTLP HTTP), 4317 (OTLP gRPC)
+
+**Responsibilities**:
+- Receive spans from AI Agent and web-ui instrumentation
+- Show prompt identifiers, versions, labels, and source attributes on agent spans
+- Support the local Responsible AI evaluation workflow alongside Ragas
+
+---
+
 ## Communication Flow
 
 ### Protocol Overview
@@ -158,21 +200,27 @@ sequenceDiagram
     participant CLI
     participant Agent
     participant Gateway
+    participant Registry
     participant Vector
     participant Weaviate
+    participant Phoenix
     
     Note over CLI,Agent: Python asyncio
     Note over Agent,Gateway: REST (httpx)
+    Note over Agent,Registry: REST prompt lookup + fallback
     Note over Gateway,Vector: gRPC (binary)
     Note over Vector,Weaviate: REST (Weaviate Client)
     
     CLI->>Agent: User command
+    Agent->>Registry: Resolve prompt by label
+    Registry-->>Agent: Prompt template or fallback if unavailable
     Agent->>Gateway: HTTP POST /v1/search
     Gateway->>Vector: gRPC Search()
     Vector->>Weaviate: REST query
     Weaviate-->>Vector: Results
     Vector-->>Gateway: SearchResponse
     Gateway-->>Agent: JSON response
+    Agent-->>Phoenix: OTEL spans with prompt.id/version/label/source
     Agent-->>CLI: Formatted output
 ```
 
@@ -196,6 +244,7 @@ sequenceDiagram
     participant Agent
     participant LangGraph
     participant Ollama
+    participant Registry
     participant Gateway
     participant Vector
     participant Weaviate
@@ -204,6 +253,7 @@ sequenceDiagram
     CLI->>Agent: search(query)
     Agent->>LangGraph: Start search_workflow
     
+    LangGraph->>Registry: get_prompt("query_classifier")
     LangGraph->>Ollama: classify_query()
     Ollama-->>LangGraph: "simple"
     
@@ -214,6 +264,7 @@ sequenceDiagram
     Vector-->>Gateway: SearchResponse
     Gateway-->>LangGraph: JSON results
     
+    LangGraph->>Registry: get_prompt("result_synthesis")
     LangGraph->>Ollama: synthesize_results()
     Ollama-->>LangGraph: Natural language answer
     LangGraph-->>Agent: Final response + citations
@@ -247,6 +298,7 @@ sequenceDiagram
 
 **Key Features**:
 - **Query Classification**: LLM determines if query is simple or complex
+- **Prompt Lookup**: Runtime prompt templates are fetched from Prompt Registry when configured, with baked-in fallback
 - **Multi-Query Expansion**: Complex queries expanded into 2-3 sub-queries
 - **Result Deduplication**: Unique results across all sub-queries
 - **Score Filtering**: Optional `min_score` parameter (0.0-1.0)
@@ -317,6 +369,7 @@ sequenceDiagram
 
 ### Programming Languages
 - **Python 3.11+**: AI Agent, Vector Service
+- **Python 3.11+**: Prompt Registry
 - **C# (.NET 8.0)**: API Gateway
 
 ### Frameworks & Libraries
@@ -329,6 +382,7 @@ sequenceDiagram
 
 #### Backend Stack
 - **ASP.NET Core 8.0**: API Gateway framework
+- **FastAPI**: Prompt Registry and web-ui backend framework
 - **gRPC**: Inter-service communication
 - **Protocol Buffers**: Message serialization
 - **Weaviate Python Client**: Vector DB client
@@ -336,6 +390,7 @@ sequenceDiagram
 
 #### Data & Storage
 - **Weaviate**: Vector database
+- **Postgres 16**: Prompt Registry relational store
 - **text2vec-transformers**: Local embeddings (free)
 - **Docker Volumes**: Data persistence
 
@@ -347,6 +402,8 @@ sequenceDiagram
 
 #### DevOps & Monitoring
 - **Docker & Docker Compose**: Containerization
+- **Phoenix**: Local trace analysis and RAI observability
+- **OpenTelemetry/OpenInference**: Distributed tracing
 - **Serilog**: Structured logging (.NET)
 - **Python logging**: Standard logging (Python)
 
@@ -359,7 +416,7 @@ sequenceDiagram
 ```mermaid
 graph TB
     subgraph "Terminal 1"
-        DC[docker-compose up -d<br/>Weaviate]
+        DC[docker compose up -d<br/>Core platform services]
     end
     
     subgraph "Terminal 2"
@@ -373,6 +430,10 @@ graph TB
     subgraph "Terminal 4"
         CLI_RUN[python -m src.cli.main<br/>AI Agent CLI]
     end
+
+    subgraph "Terminal 5"
+        WEB[uvicorn main:app<br/>Web UI backend<br/>Port 8001]
+    end
     
     subgraph "Background"
         OL[ollama serve<br/>Port 11434]
@@ -382,6 +443,7 @@ graph TB
     VS -.-> GW
     GW -.-> CLI_RUN
     OL -.-> CLI_RUN
+    DC -.-> CLI_RUN
 ```
 
 ### Port Mapping
@@ -389,6 +451,11 @@ graph TB
 - **50051**: Weaviate internal gRPC
 - **50052**: Vector Service gRPC
 - **5000**: API Gateway REST API
+- **5433**: Prompt Registry Postgres host mapping
+- **6006**: Phoenix UI and OTLP HTTP collector
+- **4317**: Phoenix OTLP gRPC collector
+- **8010**: Prompt Registry REST/static UI
+- **8001**: Web UI backend when run locally
 - **11434**: Ollama LLM
 
 ### Environment Variables
@@ -397,6 +464,9 @@ graph TB
 ```bash
 API_GATEWAY_URL=http://127.0.0.1:5000
 OLLAMA_BASE_URL=http://localhost:11434
+PROMPT_REGISTRY_URL=http://localhost:8010
+PROMPT_REGISTRY_LABEL=production
+PROMPT_REGISTRY_API_KEY=service-dev-key
 # Optional: ANTHROPIC_API_KEY or OPENAI_API_KEY
 ```
 
@@ -415,7 +485,7 @@ GRPC_PORT=50052
 }
 ```
 
-### Docker Compose (Weaviate)
+### Docker Compose (Core Platform)
 
 ```yaml
 services:
@@ -430,6 +500,14 @@ services:
       PERSISTENCE_DATA_PATH: /var/lib/weaviate
     volumes:
       - weaviate_data:/var/lib/weaviate
+  prompt-registry-db:
+    image: postgres:16-alpine
+  prompt-registry:
+    build: ./prompt-registry
+    ports:
+      - "8010:8010"
+  phoenix:
+    image: arizephoenix/phoenix:latest
 ```
 
 ### Production Considerations
@@ -442,12 +520,13 @@ services:
 **Security**:
 - Add authentication to API Gateway (JWT/OAuth2)
 - Enable Weaviate API keys
+- Replace Prompt Registry dev keys and run Alembic migrations explicitly
 - Use HTTPS/TLS for all external endpoints
 - Secure gRPC with TLS certificates
 
 **Monitoring**:
 - Add Application Insights / Prometheus metrics
-- Implement distributed tracing (OpenTelemetry)
+- Phoenix/OpenTelemetry is available locally; configure retention/export for production
 - Set up log aggregation (ELK/Loki)
 - Health check endpoints for Kubernetes
 
@@ -455,7 +534,7 @@ services:
 - Use local Ollama for routing: **FREE**
 - Weaviate with local transformers: **FREE**
 - Optional cloud LLM for synthesis: ~$0.001/query
-- **Total estimated cost: ~$1/month for synthesis**
+- **Total estimated cost: $0 for local Ollama-only demos; optional cloud synthesis cost depends on usage**
 
 ---
 
@@ -481,7 +560,7 @@ services:
 - Comprehensive error handling
 - Structured logging throughout
 - Health checks and monitoring
-- Extensive test coverage (94 tests)
+- Extensive service-level and platform integration coverage, with known gaps for web-ui automation and superproject enforcement of submodule unit tests
 - Graceful degradation
 
 ### 5. Developer Experience
@@ -495,7 +574,9 @@ services:
 ## Future Enhancements
 
 ### Short Term
-- [ ] Implement streaming search results
+- [ ] Enforce submodule unit tests in superproject CI
+- [ ] Containerize or CI-cover the web-ui
+- [ ] Promote Ragas thresholds from warning-only to enforcing
 - [ ] Add caching layer (Redis)
 - [ ] Implement rate limiting
 - [ ] Add authentication/authorization
@@ -523,7 +604,7 @@ services:
 
 ---
 
-**Last Updated**: November 4, 2025  
+**Last Updated**: June 15, 2026  
 **Version**: 1.0.0  
 **Maintained by**: IntraMind Team
 

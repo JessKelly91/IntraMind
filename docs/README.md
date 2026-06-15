@@ -19,11 +19,10 @@ This directory contains detailed documentation for the IntraMind platform.
   - Technology stack
   - Deployment patterns
 
-- **[PROJECT_ROADMAP.md](./PROJECT_ROADMAP.md)** - Development progress and plans
-  - Current status and completed phases
-  - In-progress work
-  - Future roadmap
-  - Architecture decisions
+- **[API_REFERENCE.md](./API_REFERENCE.md)** - API details for Gateway, Vector Service, Prompt Registry, and AI Agent
+  - REST and gRPC usage examples
+  - Prompt Registry auth, seed, label, eval, audit, and history endpoints
+  - Development auth and production recommendations
 
 ### Responsible AI
 
@@ -54,6 +53,8 @@ end-to-end overview.
 - [Vector DB Service Docs](../vector-db-service/README.md)
 - [API Gateway Docs](../api-gateway/README.md)
 - [AI Agent Docs](../ai-agent/README.md)
+- [Prompt Registry Docs](../prompt-registry/README.md)
+- [Web UI Docs](../web-ui/README.md)
 
 ## 🚀 Getting Started
 
@@ -73,5 +74,5 @@ When updating documentation:
 
 ---
 
-**Last Updated**: November 5, 2025
+**Last Updated**: June 15, 2026
 

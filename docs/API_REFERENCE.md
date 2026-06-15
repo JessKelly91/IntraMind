@@ -3,7 +3,7 @@
 > Complete API reference for all IntraMind services
 
 **Version**: 1.0.0
-**Last Updated**: November 6, 2025
+**Last Updated**: June 15, 2026
 
 ---
 
@@ -12,11 +12,12 @@
 1. [Overview](#overview)
 2. [API Gateway (REST API)](#api-gateway-rest-api)
 3. [Vector Service (gRPC API)](#vector-service-grpc-api)
-4. [Weaviate Database API](#weaviate-database-api)
-5. [AI Agent Programmatic Interface](#ai-agent-programmatic-interface)
-6. [Authentication](#authentication)
-7. [Rate Limiting](#rate-limiting)
-8. [Error Codes](#error-codes)
+4. [Prompt Registry API](#prompt-registry-api)
+5. [Weaviate Database API](#weaviate-database-api)
+6. [AI Agent Programmatic Interface](#ai-agent-programmatic-interface)
+7. [Authentication](#authentication)
+8. [Rate Limiting](#rate-limiting)
+9. [Error Codes](#error-codes)
 
 ---
 
@@ -43,6 +44,11 @@
 ┌─────────────────┐
 │  Weaviate DB    │  REST API (Port 8080)
 └─────────────────┘
+
+┌─────────────────┐
+│ Prompt Registry │  REST API (Port 8010)
+│ + Postgres      │
+└─────────────────┘
 ```
 
 ### Base URLs
@@ -53,6 +59,7 @@
 | API Gateway | Production | https://api.intramind.company.com |
 | Weaviate | Development | http://localhost:8080 |
 | Vector Service | Development | http://localhost:50052 (gRPC) |
+| Prompt Registry | Development | http://localhost:8010 |
 
 ---
 
@@ -757,6 +764,134 @@ foreach (var result in searchResponse.Results)
 
 ---
 
+## Prompt Registry API
+
+### Overview
+
+The Prompt Registry is the runtime source of truth for AI Agent prompts. It stores prompt versions, labels such as `production` and `candidate`, eval results, and audit events. The AI Agent calls it at runtime and falls back to the baked-in code registry if the service is disabled or unavailable.
+
+**Base URL**: http://localhost:8010
+
+### Authentication
+
+`GET /health` is unauthenticated. API routes use `X-API-Key`.
+
+- Admin key: create versions, set labels, seed prompts
+- Service key: resolve prompts and attach eval results
+
+Development compose defaults are `admin-dev-key` and `service-dev-key`; replace these for production.
+
+### Health Check
+
+```http
+GET /health HTTP/1.1
+Host: localhost:8010
+```
+
+### Resolve Prompt by Label
+
+```http
+GET /api/v1/prompts/{prompt_id}?label=production HTTP/1.1
+Host: localhost:8010
+X-API-Key: service-dev-key
+```
+
+**Response:**
+```json
+{
+  "id": "query_classifier",
+  "version": 1,
+  "template": "Classify the user query...",
+  "hash": "abc123def456",
+  "label": "production",
+  "params": {}
+}
+```
+
+### List Prompts and Versions
+
+```http
+GET /api/v1/prompts HTTP/1.1
+GET /api/v1/prompts/{prompt_id}/versions HTTP/1.1
+GET /api/v1/prompts/{prompt_id}/versions/{version} HTTP/1.1
+Host: localhost:8010
+X-API-Key: service-dev-key
+```
+
+### Create Prompt Version
+
+```http
+POST /api/v1/prompts/{prompt_id}/versions HTTP/1.1
+Host: localhost:8010
+X-API-Key: admin-dev-key
+Content-Type: application/json
+
+{
+  "template": "New prompt template...",
+  "params": {},
+  "message": "Why this version exists",
+  "created_by": "operator"
+}
+```
+
+Duplicate prompt content is rejected by content hash.
+
+### Set Label for Promotion or Rollback
+
+```http
+PUT /api/v1/prompts/{prompt_id}/labels/{label} HTTP/1.1
+Host: localhost:8010
+X-API-Key: admin-dev-key
+Content-Type: application/json
+
+{
+  "version": 2,
+  "actor": "operator"
+}
+```
+
+Moving `production` to a newer version is promotion; moving it back is rollback. Both write audit log entries.
+
+### Attach Eval Results
+
+```http
+POST /api/v1/prompts/{prompt_id}/versions/{version}/evals HTTP/1.1
+Host: localhost:8010
+X-API-Key: service-dev-key
+Content-Type: application/json
+
+{
+  "judge_model": "ollama/llama3.1:8b",
+  "metrics": {
+    "faithfulness": 0.91,
+    "answer_relevancy": 0.87
+  },
+  "passed": true,
+  "results_ref": "ai-agent/tests/eval/results/latest.json"
+}
+```
+
+### Audit and History
+
+```http
+GET /api/v1/audit HTTP/1.1
+GET /api/v1/prompts/{prompt_id}/history HTTP/1.1
+Host: localhost:8010
+X-API-Key: service-dev-key
+```
+
+### Seed from Code Registry
+
+```http
+POST /api/v1/admin/seed HTTP/1.1
+Host: localhost:8010
+X-API-Key: admin-dev-key
+```
+
+The seed operation imports `ai-agent/src/prompts/registry.py`, upserts prompt versions by content hash, and sets `production` on first seed when no label exists.
+
+---
+
 ## Weaviate Database API
 
 ### Overview
@@ -951,7 +1086,7 @@ async def ingest_document(
 
 ### Current State (Development)
 
-All services currently use **anonymous access** for local development.
+API Gateway and Weaviate currently use anonymous access for local development. Prompt Registry uses API keys even in development, with dev defaults provided by compose.
 
 ### Production Recommendations
 
@@ -983,6 +1118,16 @@ weaviate:
     AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'false'
     AUTHENTICATION_APIKEY_ENABLED: 'true'
     AUTHENTICATION_APIKEY_ALLOWED_KEYS: 'your-secure-key'
+```
+
+#### Prompt Registry Authentication
+
+Set secure admin and service keys in production:
+
+```bash
+PROMPT_REGISTRY_ADMIN_API_KEY=replace-with-secure-admin-key
+PROMPT_REGISTRY_SERVICE_API_KEY=replace-with-secure-service-key
+PROMPT_REGISTRY_AUTH_DEV_MODE=false
 ```
 
 ---
@@ -1067,6 +1212,7 @@ services.AddRateLimiter(options => {
 ## Additional Resources
 
 - **Swagger UI**: http://localhost:5000/swagger (interactive API documentation)
+- **Prompt Registry UI**: http://localhost:8010
 - **API Usage Guide**: [api-gateway/docs/api-usage-guide.md](../api-gateway/docs/api-usage-guide.md)
 - **Metadata Schema**: [api-gateway/docs/metadata-schema.md](../api-gateway/docs/metadata-schema.md)
 - **Deployment Guide**: [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)
@@ -1074,5 +1220,5 @@ services.AddRateLimiter(options => {
 
 ---
 
-**Last Updated**: November 6, 2025
+**Last Updated**: June 15, 2026
 **Maintained By**: IntraMind Development Team

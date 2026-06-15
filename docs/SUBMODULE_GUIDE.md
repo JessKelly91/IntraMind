@@ -2,7 +2,7 @@
 
 > Complete guide to working with Git submodules in the IntraMind platform
 
-**Last Updated**: November 6, 2025
+**Last Updated**: June 15, 2026
 
 ---
 
@@ -730,13 +730,15 @@ git submodule foreach 'git remote update && git status -uno'
 For issues specific to IntraMind submodules:
 
 1. Check this guide first
-2. Review [PROJECT_ROADMAP.md](./PROJECT_ROADMAP.md) for current status
+2. Review the root [README.md](../README.md), [ARCHITECTURE.md](./ARCHITECTURE.md), and service-specific READMEs for current status
 3. Check individual service READMEs:
    - [vector-db-service/README.md](../vector-db-service/README.md)
    - [api-gateway/README.md](../api-gateway/README.md)
    - [ai-agent/README.md](../ai-agent/README.md)
+   - [prompt-registry/README.md](../prompt-registry/README.md)
+   - [web-ui/README.md](../web-ui/README.md)
 
 ---
 
-**Last Updated**: November 6, 2025
+**Last Updated**: June 15, 2026
 **Maintained By**: IntraMind Development Team

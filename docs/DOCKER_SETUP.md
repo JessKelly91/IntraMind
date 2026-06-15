@@ -50,6 +50,17 @@ The IntraMind platform uses Docker Compose to orchestrate multiple services:
 │        │                  │  │ Transformers  │ │  │
 │        │                  │  │   (internal)  │ │  │
 │        │                  │  └───────────────┘ │  │
+│        │                  │  ┌───────────────┐ │  │
+│        │                  │  │ Prompt        │ │  │
+│        │                  │  │ Registry :8010│ │  │
+│        │                  │  └──────┬────────┘ │  │
+│        │                  │         │          │  │
+│        │                  │  ┌──────▼────────┐ │  │
+│        │                  │  │ Postgres :5433│ │  │
+│        │                  │  └───────────────┘ │  │
+│        │                  │  ┌───────────────┐ │  │
+│        │                  │  │ Phoenix :6006 │ │  │
+│        │                  │  └───────────────┘ │  │
 │        │                  └─────────────────────┘  │
 └─────────────────────────────────────────────────────┘
 ```
@@ -60,12 +71,15 @@ The IntraMind platform uses Docker Compose to orchestrate multiple services:
 Startup Order:
 1. t2v-transformers (embedding model)
 2. weaviate (waits for transformers to be healthy)
-3. vector-service (waits for weaviate to be healthy)
-4. api-gateway (waits for vector-service to be healthy)
+3. prompt-registry-db and phoenix
+4. prompt-registry (waits for Postgres to be healthy)
+5. vector-service (waits for weaviate to be healthy)
+6. api-gateway (waits for vector-service to be healthy)
 
 External:
 - Ollama (runs on host)
-- AI Agent CLI (runs on host, connects to api-gateway)
+- AI Agent CLI (runs on host, connects to api-gateway and optionally prompt-registry)
+- Web UI backend/widget (runs on host; not currently part of root compose)
 ```
 
 ---
@@ -139,6 +153,9 @@ docker-compose up -d
 # This will start:
 # - t2v-transformers (embedding model)
 # - weaviate (vector database)
+# - phoenix (tracing UI)
+# - prompt-registry-db (Postgres)
+# - prompt-registry (FastAPI prompt governance service)
 # - vector-service (gRPC service)
 # - api-gateway (REST API)
 ```
@@ -151,6 +168,9 @@ docker-compose ps
 # Expected output:
 # NAME                        STATUS
 # intramind-api-gateway       Up (healthy)
+# intramind-prompt-registry   Up (healthy)
+# intramind-prompt-registry-db Up (healthy)
+# intramind-phoenix           Up (healthy)
 # intramind-vector-service    Up (healthy)
 # intramind-weaviate          Up (healthy)
 # intramind-transformers      Up (healthy)
@@ -254,6 +274,37 @@ curl http://localhost:5000/health/liveness
 curl http://localhost:5000/health/readiness
 ```
 
+### 5. Prompt Registry (FastAPI + Postgres)
+
+**Container**: `intramind-prompt-registry`  
+**Ports**: 8010 (HTTP)  
+**Database**: `intramind-prompt-registry-db` on host port 5433  
+**Purpose**: Versioned prompt source of truth for the AI Agent, with label-based promotion/rollback and code-registry fallback.
+
+**Health Check:**
+```bash
+curl http://localhost:8010/health
+```
+
+**Seed from AI Agent code registry:**
+```bash
+curl -X POST http://localhost:8010/api/v1/admin/seed \
+  -H "X-API-Key: admin-dev-key"
+```
+
+The compose service mounts `./ai-agent` read-only so the seed endpoint can import the baked-in prompt registry. For production images, either run Alembic migrations explicitly or keep `PROMPT_REGISTRY_AUTO_CREATE_SCHEMA=true` for development-style schema creation.
+
+### 6. Phoenix (Tracing UI)
+
+**Container**: `intramind-phoenix`  
+**Ports**: 6006 (UI + OTLP HTTP), 4317 (OTLP gRPC)  
+**Purpose**: Local OpenTelemetry/Phoenix tracing for AI Agent, web-ui, and RAI workflows.
+
+**Health/UI:**
+```bash
+curl http://localhost:6006/
+```
+
 ---
 
 ## ⚙️ Configuration
@@ -282,6 +333,12 @@ API_GATEWAY_URL=http://localhost:5000
 OLLAMA_BASE_URL=http://localhost:11434
 PRIMARY_LLM_PROVIDER=anthropic  # or openai, ollama
 ANTHROPIC_API_KEY=your_key_here
+
+# Prompt Registry
+PROMPT_REGISTRY_URL=http://localhost:8010
+PROMPT_REGISTRY_LABEL=production
+PROMPT_REGISTRY_API_KEY=service-dev-key
+PROMPT_REGISTRY_CACHE_TTL=60
 ```
 
 ### Volume Mounts
@@ -293,6 +350,10 @@ volumes:
     # Location: Docker volume (managed by Docker)
     # Contains: Weaviate database and indexes
     # Size: Grows with stored documents
+  phoenix_data:
+    # Contains: Phoenix trace data
+  prompt_registry_data:
+    # Contains: Prompt Registry Postgres data
 ```
 
 **View Volume:**
@@ -317,6 +378,10 @@ docker run --rm -v intramind_weaviate_data:/data -v $(pwd):/backup ubuntu tar cz
 - `50051` → Weaviate gRPC (not typically used directly)
 - `50052` → Vector Service gRPC
 - `5000` → API Gateway REST
+- `5433` → Prompt Registry Postgres
+- `6006` → Phoenix tracing UI
+- `4317` → Phoenix OTLP gRPC collector
+- `8010` → Prompt Registry REST/static UI
 
 ---
 
@@ -345,6 +410,7 @@ lsof -i :5000
 docker-compose logs weaviate
 docker-compose logs vector-service
 docker-compose logs api-gateway
+docker-compose logs prompt-registry
 ```
 
 ### Service is Unhealthy
@@ -376,6 +442,13 @@ docker inspect intramind-weaviate --format='{{.State.Health.Status}}'
    ```bash
    # Check Vector Service is accessible
    docker-compose exec api-gateway wget --spider http://vector-service:50052
+   ```
+
+4. **Prompt Registry unhealthy**: Can't connect to Postgres or schema is missing
+   ```bash
+   docker-compose logs prompt-registry-db
+   docker-compose logs prompt-registry
+   curl http://localhost:8010/health
    ```
 
 ### AI Agent Can't Connect
@@ -498,7 +571,7 @@ python -m src.service.server
 ```bash
 cd ai-agent
 python -m src.cli.main
-# Always runs on host
+# Runs on host; set PROMPT_REGISTRY_URL to use runtime prompts or leave unset for baked-in fallback
 ```
 
 ---
@@ -524,6 +597,8 @@ Access service health endpoints:
 
 - **API Gateway**: http://localhost:5000/health
 - **Weaviate**: http://localhost:8080/v1/.well-known/ready
+- **Prompt Registry**: http://localhost:8010/health
+- **Phoenix**: http://localhost:6006/
 - **Swagger UI**: http://localhost:5000/swagger
 
 ---
@@ -557,11 +632,11 @@ docker-compose rm -f
 - [Docker Compose Documentation](https://docs.docker.com/compose/)
 - [Weaviate Documentation](https://weaviate.io/developers/weaviate)
 - [IntraMind Architecture](./ARCHITECTURE.md)
-- [Project Roadmap](./PROJECT_ROADMAP.md)
+- [Deployment Guide](./DEPLOYMENT_GUIDE.md)
 
 ---
 
-**Last Updated**: November 5, 2025  
+**Last Updated**: June 15, 2026  
 **Docker Compose Version**: 3.8  
 **Platform Version**: 1.0.0
 

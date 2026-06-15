@@ -272,12 +272,12 @@ See [`docs/SUBMODULE_GUIDE.md`](./docs/SUBMODULE_GUIDE.md) for the full submodul
 - [ ] Flip the Ragas threshold gate from warning-only to enforcing once a baseline is established
 - [ ] User acceptance testing on a real corpus
 
-See [`docs/PROJECT_ROADMAP.md`](./docs/PROJECT_ROADMAP.md) for the full phase-by-phase breakdown.
+Current near-term work is CI/test enforcement, retrieval quality, web-ui automation, and production hardening.
 
 ## 🧪 Testing
 
 ### Unit tests (per submodule)
-Run inside the relevant submodule (`ai-agent/`, `api-gateway/`, `vector-db-service/`, `web-ui/`).
+Run inside the relevant submodule (`ai-agent/`, `api-gateway/`, `vector-db-service/`, `prompt-registry/`). The `web-ui` currently has manual testing docs but no automated test suite.
 
 For example, the AI Agent ships **112+ unit tests** plus **16 Responsible AI tests** (PII redaction + safety guard parsing + workflow hard-block):
 
@@ -293,7 +293,7 @@ Located in [`tests/integration/`](./tests/integration/):
 cd tests
 pip install -r requirements.txt
 pytest integration/ -v
-# Expected: ~34 passed, ~6 skipped in CI mode (no vectorizer)
+# Expected: core tests pass; vectorizer-dependent tests skip in CI mode
 ```
 
 **CI mode:** [`docker-compose.ci.yml`](./docker-compose.ci.yml) runs without the 8 GB text2vec-transformers model, trading semantic-search coverage for ~5 minutes of CI runtime. Semantic-search tests skip themselves automatically.
@@ -327,7 +327,6 @@ Every PR gets a warning-only RAG-quality report (faithfulness, answer relevancy,
 - **[CI Compose Configuration](./docker-compose.ci.yml)** — Optimized CI environment
 
 ### Project Management
-- **[Project Roadmap](./docs/PROJECT_ROADMAP.md)** — Development progress and plans
 - **[Production Improvements](./docs/PRODUCTION_IMPROVEMENTS.md)** — NuGet package implementation
 - **[NuGet Implementation](./docs/NUGET_IMPLEMENTATION.md)** — Contract packaging details
 
@@ -336,6 +335,7 @@ Every PR gets a warning-only RAG-quality report (faithfulness, answer relevancy,
 - [API Gateway](./api-gateway/README.md)
 - [AI Agent](./ai-agent/README.md)
 - [Web UI](./web-ui/README.md)
+- [Prompt Registry](./prompt-registry/README.md)
 
 ## 🤝 Contributing
 

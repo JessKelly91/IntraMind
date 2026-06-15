@@ -3,7 +3,7 @@
 > Complete guide to using the IntraMind AI-powered document search platform
 
 **Version**: 1.0.0
-**Last Updated**: November 6, 2025
+**Last Updated**: June 15, 2026
 
 ---
 
@@ -1073,9 +1073,9 @@ def search_with_access_control(query: str, user_department: str) -> dict:
 - **API Reference**: [API_REFERENCE.md](./API_REFERENCE.md)
 - **Deployment Guide**: [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)
 - **Submodule Guide**: [SUBMODULE_GUIDE.md](./SUBMODULE_GUIDE.md)
-- **Project Roadmap**: [PROJECT_ROADMAP.md](./PROJECT_ROADMAP.md)
+- **Architecture Overview**: [ARCHITECTURE.md](./ARCHITECTURE.md)
 
 ---
 
-**Last Updated**: November 6, 2025
+**Last Updated**: June 15, 2026
 **Maintained By**: IntraMind Development Team

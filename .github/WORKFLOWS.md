@@ -13,8 +13,8 @@
 ```
 .github/
 ├── workflows/
-│   ├── ci.yml                # Main CI pipeline
-│   ├── drift-report.yml      # Weekly Evidently drift report (Free RAI Stack, Step 5)
+│   ├── ci.yml                # Main CI pipeline, integration tests, warning-only RAG evals
+│   ├── drift-report.yml      # Weekly Evidently drift report
 │   └── docker-publish.yml    # Docker image publishing
 ├── CODEOWNERS                # Code ownership definitions
 └── WORKFLOWS.md              # This file
@@ -49,6 +49,7 @@
 3. **build-services** - Docker image builds
    - Builds vector-service Docker image
    - Builds api-gateway Docker image
+   - Builds prompt-registry Docker image
    - Uses Docker layer caching
    - Scans images with Trivy
    - Uploads images as artifacts
@@ -56,12 +57,19 @@
 4. **integration-tests** - Platform integration testing
    - Loads built Docker images
    - Starts services with docker-compose (CI mode - no vectorizer)
-   - Waits for health checks
-   - Runs pytest integration test suite (40 tests)
+   - Starts Prompt Registry with ephemeral Postgres
+   - Waits for Weaviate, API Gateway, and Prompt Registry health checks
+   - Runs pytest integration test suite
    - Generates test reports and coverage
    - **Note:** CI runs without text2vec-transformers (8GB model) for speed
 
-5. **generate-summary** - Build summary
+5. **rag-evals** - RAG evaluation smoke/gate job
+   - Starts the CI compose stack
+   - Seeds Prompt Registry from the AI Agent code registry
+   - Runs Ragas threshold tests with local Ollama judge configuration
+   - Currently `continue-on-error: true` and `RAGAS_ENFORCE_THRESHOLDS=false`, so it is warning-only
+
+6. **generate-summary** - Build summary
    - Aggregates job results
    - Generates GitHub Actions summary
    - Lists built artifacts
@@ -104,7 +112,13 @@ gh workflow run ci.yml
    - Creates multiple tags (latest, version, SHA)
    - Generates attestation
 
-3. **verify-images** - Verifies published images
+3. **publish-prompt-registry** - Publishes Prompt Registry
+   - Builds Docker image
+   - Pushes to ghcr.io
+   - Creates multiple tags (latest, version, SHA)
+   - Generates attestation
+
+4. **verify-images** - Verifies published images
    - Pulls published images
    - Inspects metadata
    - Generates summary
@@ -121,6 +135,7 @@ Images are published with multiple tags:
 ```
 ghcr.io/<username>/intramind-vector-service:latest
 ghcr.io/<username>/intramind-api-gateway:latest
+ghcr.io/<username>/intramind-prompt-registry:latest
 ```
 
 **Example usage:**
@@ -161,6 +176,7 @@ For branch protection, the following checks should be required:
 ☑ lint-and-security
 ☑ build-services
 ☑ integration-tests
+☐ rag-evals (currently warning-only while thresholds are tuned)
 ```
 
 Configure in: **Settings → Branches → Branch protection rules**
@@ -207,7 +223,7 @@ See [GITHUB_SETUP.md](../docs/GITHUB_SETUP.md) for detailed configuration.
 ```yaml
 strategy:
   matrix:
-    service: [vector-service, api-gateway]
+    service: [vector-service, api-gateway, prompt-registry]
 ```
 
 ### 4. Generate Summaries
@@ -354,7 +370,15 @@ This configuration:
 - ✅ Skips the 8GB text2vec-transformers model download
 - ✅ Reduces CI run time by ~5 minutes
 - ✅ Tests core functionality without semantic search
+- ✅ Includes Prompt Registry plus ephemeral Postgres
 - ✅ Semantic search tests are automatically skipped in CI
+
+### Current CI Coverage Notes
+
+- Superproject CI builds `vector-service`, `api-gateway`, and `prompt-registry`.
+- Superproject CI runs the root platform integration suite and warning-only Ragas evals.
+- Submodule-local unit tests for `ai-agent`, `api-gateway`, `vector-db-service`, and `prompt-registry` are not yet enforced by the superproject workflow.
+- `web-ui` is not included in root compose or CI and currently relies on manual testing docs.
 
 **Local Development** (with full vectorizer support):
 ```bash
@@ -363,5 +387,5 @@ docker compose up  # Uses text2vec-transformers by default
 
 ---
 
-**Last Updated:** November 9, 2025
+**Last Updated:** June 15, 2026
 **Maintained By:** IntraMind Platform Team

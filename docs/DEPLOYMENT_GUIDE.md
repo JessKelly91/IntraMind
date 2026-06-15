@@ -3,7 +3,7 @@
 > Complete deployment instructions for the IntraMind AI-powered document search platform
 
 **Version**: 1.0.0
-**Last Updated**: November 6, 2025
+**Last Updated**: June 15, 2026
 **Target Audience**: DevOps Engineers, System Administrators, Developers
 
 ---
@@ -26,11 +26,11 @@
 
 ### Architecture
 
-IntraMind consists of 4 primary services orchestrated via Docker Compose:
+IntraMind consists of a Dockerized core platform plus host-run AI/UI components:
 
 ```
 ┌──────────────────┐
-│   AI Agent CLI   │  (Python - Host or Docker)
+│   AI Agent CLI   │  (Python - Host)
 └────────┬─────────┘
          │ REST/HTTP
          ▼
@@ -48,7 +48,17 @@ IntraMind consists of 4 primary services orchestrated via Docker Compose:
 │  Weaviate DB     │  (Vector Database - Port 8080)
 │  + Transformers  │  (Free embeddings)
 └──────────────────┘
+
+AI Agent also talks to:
+┌──────────────────┐
+│ Prompt Registry  │  (FastAPI - Port 8010, Postgres host port 5433)
+└──────────────────┘
+┌──────────────────┐
+│ Phoenix Tracing  │  (Port 6006)
+└──────────────────┘
 ```
+
+The root `docker-compose.yml` currently starts Weaviate, text2vec-transformers, Vector Service, API Gateway, Phoenix, Prompt Registry, and Prompt Registry Postgres. The AI Agent CLI and Web UI backend/widget are still run from the host for local development.
 
 ### Deployment Models
 
@@ -118,7 +128,8 @@ ollama serve
 **Step 3: Start Backend Services**
 
 ```bash
-# Start Weaviate, Vector Service, API Gateway
+# Start Weaviate, Transformers, Vector Service, API Gateway,
+# Phoenix, Prompt Registry, and Prompt Registry Postgres
 docker-compose up -d
 
 # Wait for services to be healthy (30-60 seconds)
@@ -127,6 +138,8 @@ docker-compose ps
 # Verify health
 curl http://localhost:8080/v1/.well-known/ready  # Weaviate
 curl http://localhost:5000/health                # API Gateway
+curl http://localhost:8010/health                # Prompt Registry
+curl http://localhost:6006/                      # Phoenix UI
 ```
 
 **Step 4: Configure and Run AI Agent**
@@ -170,6 +183,8 @@ Once deployed, services are available at:
 | **Vector Service** | http://localhost:50052 | gRPC vector service |
 | **API Gateway** | http://localhost:5000 | REST API |
 | **API Gateway Swagger** | http://localhost:5000/swagger | API documentation |
+| **Prompt Registry** | http://localhost:8010 | Versioned prompt registry and static admin UI |
+| **Phoenix** | http://localhost:6006 | Local tracing UI |
 
 ---
 
@@ -217,7 +232,16 @@ ENVIRONMENT=Production
 ANTHROPIC_API_KEY=your-anthropic-key
 OPENAI_API_KEY=your-openai-key
 API_GATEWAY_URL=http://api-gateway:5000
+
+# Prompt Registry
+PROMPT_REGISTRY_ADMIN_API_KEY=replace-with-secure-admin-key
+PROMPT_REGISTRY_SERVICE_API_KEY=replace-with-secure-service-key
+PROMPT_REGISTRY_AUTH_DEV_MODE=false
+PROMPT_REGISTRY_AUTO_CREATE_SCHEMA=false
+PROMPT_REGISTRY_DATABASE_URL=postgresql+asyncpg://user:password@host:5432/intramind_prompt_registry
 ```
+
+For production-style Prompt Registry deployment, run `alembic upgrade head` before starting the service or provide an equivalent migration step. The local compose file defaults `PROMPT_REGISTRY_AUTO_CREATE_SCHEMA=true` for convenience.
 
 **Step 2: Build and Start Services**
 
@@ -245,6 +269,8 @@ docker-compose logs -f
 curl http://localhost:8080/v1/.well-known/ready
 curl http://localhost:5000/health/liveness
 curl http://localhost:5000/health/readiness
+curl http://localhost:8010/health
+curl http://localhost:6006/
 ```
 
 ### Health Check Script
@@ -269,6 +295,14 @@ if curl -f -s http://localhost:5000/health > /dev/null; then
     echo "✓ API Gateway: Healthy"
 else
     echo "✗ API Gateway: Unhealthy"
+    exit 1
+fi
+
+# Check Prompt Registry
+if curl -f -s http://localhost:8010/health > /dev/null; then
+    echo "✓ Prompt Registry: Healthy"
+else
+    echo "✗ Prompt Registry: Unhealthy"
     exit 1
 fi
 
@@ -334,6 +368,12 @@ AGENT_VERBOSE=true
 ENABLE_CONVERSATION_MEMORY=true
 MAX_CONVERSATION_HISTORY=5
 CHECKPOINT_STORAGE_PATH=./data/checkpoints.db
+
+# Runtime prompt registry (optional; unset URL keeps baked-in fallback behavior)
+PROMPT_REGISTRY_URL=http://localhost:8010
+PROMPT_REGISTRY_LABEL=production
+PROMPT_REGISTRY_API_KEY=service-dev-key
+PROMPT_REGISTRY_CACHE_TTL=60
 ```
 
 ### Production Environment Variables
@@ -356,7 +396,13 @@ environment:
   - GRPC_PORT=50052
 
   # Observability
-  - APPINSIGHTS_CONNECTION_STRING=${APPINSIGHTS_KEY}
+  - ENABLE_TRACING=true
+  - PHOENIX_ENDPOINT=http://phoenix:6006
+
+  # Prompt Registry
+  - PROMPT_REGISTRY_AUTH_DEV_MODE=false
+  - PROMPT_REGISTRY_ADMIN_API_KEY=${PROMPT_REGISTRY_ADMIN_API_KEY}
+  - PROMPT_REGISTRY_SERVICE_API_KEY=${PROMPT_REGISTRY_SERVICE_API_KEY}
 ```
 
 ---
@@ -550,6 +596,30 @@ docker run -it --network intramind-network intramind-ai-agent
 
 ---
 
+### 5. Prompt Registry
+
+**Purpose**: Versioned runtime prompt source for the AI Agent, with labels (`production`, `candidate`, `staging`), audit history, eval attachments, and code-registry fallback.
+
+**Repository**: `prompt-registry/` (submodule)
+
+**Deployment**:
+
+```bash
+# Included in root docker-compose.yml
+docker-compose up -d prompt-registry-db prompt-registry
+
+# Seed initial prompt versions from ai-agent/src/prompts/registry.py
+curl -X POST http://localhost:8010/api/v1/admin/seed \
+  -H "X-API-Key: admin-dev-key"
+```
+
+**Production notes**:
+- Replace dev keys and database credentials.
+- Run Alembic migrations explicitly when `PROMPT_REGISTRY_AUTO_CREATE_SCHEMA=false`.
+- Ensure the service can access the AI Agent code registry for seeding, either through the compose mount used locally or a production-specific source path.
+
+---
+
 ## Health Checks & Monitoring
 
 ### Service Health Endpoints
@@ -560,6 +630,8 @@ docker run -it --network intramind-network intramind-ai-agent
 | API Gateway | `GET http://localhost:5000/health` | HTTP 200, JSON status |
 | API Gateway Liveness | `GET http://localhost:5000/health/liveness` | HTTP 200 |
 | API Gateway Readiness | `GET http://localhost:5000/health/readiness` | HTTP 200 |
+| Prompt Registry | `GET http://localhost:8010/health` | HTTP 200, DB status |
+| Phoenix | `GET http://localhost:6006/` | HTTP 200 |
 
 ### Automated Health Monitoring
 
@@ -607,7 +679,7 @@ pytest -m smoke       # Smoke tests only
 pytest -m e2e         # End-to-end tests only
 ```
 
-**Expected Result**: All 40 tests passing
+**Expected Result**: Core platform tests pass, with vectorizer-dependent tests skipped in CI mode. Prompt Registry has platform smoke coverage, but submodule unit tests are not currently enforced by the superproject CI.
 
 ---
 
@@ -634,7 +706,7 @@ docker-compose logs vector-service
 
 **Solutions**:
 - Ensure Docker Desktop is running
-- Check port conflicts (8080, 5000, 50052)
+- Check port conflicts (8080, 5000, 50052, 5433, 6006, 8010)
 - Verify submodules are initialized: `git submodule update --init --recursive`
 
 #### 2. API Gateway Can't Connect to Vector Service
@@ -716,6 +788,22 @@ ollama list
 - Pull required model: `ollama pull llama3.2:3b`
 - Start Ollama: `ollama serve`
 
+#### 6. Prompt Registry Can't Seed
+
+**Symptom**: `POST /api/v1/admin/seed` fails.
+
+**Diagnosis**:
+
+```bash
+docker-compose logs prompt-registry
+curl http://localhost:8010/health
+```
+
+**Solutions**:
+- Verify the `./ai-agent:/workspace/ai-agent:ro` mount exists in compose.
+- Verify `PROMPT_REGISTRY_AI_AGENT_SRC_PATH=/workspace/ai-agent/src`.
+- Use the admin API key in `X-API-Key`.
+
 ### Log Analysis
 
 **View All Logs**:
@@ -730,6 +818,8 @@ docker-compose logs -f --tail=100
 docker-compose logs -f weaviate
 docker-compose logs -f vector-service
 docker-compose logs -f api-gateway
+docker-compose logs -f prompt-registry
+docker-compose logs -f phoenix
 ```
 
 **Search Logs for Errors**:
@@ -862,11 +952,11 @@ fi
 ## Next Steps
 
 1. **Configure production secrets** (API keys, database credentials)
-2. **Set up CI/CD pipeline** (GitHub Actions, Jenkins)
-3. **Configure monitoring** (Prometheus, Grafana, ELK)
-4. **Implement authentication** (OAuth2, API keys)
-5. **Load test** (identify bottlenecks and optimize)
-6. **Document runbooks** (incident response procedures)
+2. **Enforce submodule unit tests in CI** for `ai-agent`, `api-gateway`, `vector-db-service`, and `prompt-registry`
+3. **Containerize or CI-cover the web-ui**; it is currently host-run with manual testing
+4. **Promote warning-only Ragas thresholds to a hard gate** once a stable baseline is established
+5. **Configure production monitoring** (Prometheus/Grafana/ELK or equivalent plus Phoenix retention policy)
+6. **Document runbooks** (migrations, prompt rollback, incident response)
 
 ---
 
@@ -881,5 +971,5 @@ fi
 
 ---
 
-**Last Updated**: November 6, 2025
+**Last Updated**: June 15, 2026
 **Maintained By**: IntraMind Development Team

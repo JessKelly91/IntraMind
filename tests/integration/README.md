@@ -10,7 +10,7 @@ These tests are different from service-level tests found in individual submodule
 |------------|----------|-------|-------------------|
 | **Unit Tests** | Each submodule | Single service, mocked deps | None (mocks used) |
 | **Service Integration** | Each submodule | Single service + real deps | Partial (e.g., just Weaviate) |
-| **Platform Integration** | This directory | Full stack, all services | All services required |
+| **Platform Integration** | This directory | Dockerized core stack | API Gateway, Vector Service, Weaviate, Prompt Registry |
 
 ## Test Categories
 
@@ -28,7 +28,7 @@ Complete user scenarios across all services.
 **Duration:** ~2-3 minutes  
 **Markers:** `@pytest.mark.e2e`
 
-### 🚨 Error Scenario Tests (`test_cross_service_errors.py`)
+### 🚨 Error Scenario Tests (`test_error_scenarios.py`)
 Validate error handling and propagation across service boundaries.
 
 **Tests:** 6-8 tests  
@@ -42,29 +42,25 @@ Load testing and performance benchmarking.
 **Duration:** ~5-10 minutes  
 **Markers:** `@pytest.mark.performance`, `@pytest.mark.slow`
 
+### 🧾 Prompt Registry Tests (`test_prompt_registry.py`)
+Validate Prompt Registry health/auth plus seed-and-resolve behavior through the platform compose stack.
+
+**Tests:** 2 tests  
+**Duration:** ~5-10 seconds  
+**Markers:** `@pytest.mark.integration`
+
 ## Prerequisites
 
 ### Required Services
 
-All services must be running **before** executing tests:
+The recommended local path is to start the CI-optimized compose stack from the repository root:
 
 ```powershell
-# Terminal 1: Weaviate Database
-cd vector-db-service
-docker-compose up -d
-
-# Terminal 2: Vector Database Service (gRPC)
-cd vector-db-service
-.\venv\Scripts\Activate.ps1
-python -m src.service.server
-
-# Terminal 3: API Gateway (REST)
-cd api-gateway
-dotnet run --project src/IntraMind.ApiGateway
-
-# Terminal 4: Ollama (for AI Agent tests)
-# Ensure Ollama is running on port 11434
+cd ..
+docker compose -f docker-compose.ci.yml up -d
 ```
+
+For full local semantic-search behavior, use `docker compose up -d` instead. That starts the heavier `text2vec-transformers` container.
 
 ### Service Endpoints
 
@@ -72,11 +68,12 @@ Tests expect services at these URLs (configurable via environment variables):
 
 | Service | Default Local | CI Environment | Environment Variable |
 |---------|---------------|----------------|---------------------|
-| **API Gateway** | http://localhost:64536 | http://localhost:5000 | `API_GATEWAY_URL` |
+| **API Gateway** | http://localhost:5000 | http://localhost:5000 | `API_GATEWAY_URL` |
 | **Weaviate** | http://localhost:8080 | http://localhost:8080 | `WEAVIATE_URL` |
-| **Ollama** | http://localhost:11434 | (not used) | `OLLAMA_URL` |
+| **Prompt Registry** | http://localhost:8010 | http://localhost:8010 | `PROMPT_REGISTRY_URL` |
+| **Ollama** | http://localhost:11434 | (not required) | `OLLAMA_URL` |
 
-**Note:** CI uses `docker-compose.ci.yml` which maps services to different ports and disables the vectorizer for faster testing.
+**Note:** CI uses `docker-compose.ci.yml`, disables the vectorizer for faster testing, and starts Prompt Registry with an ephemeral Postgres database. Web UI and AI Agent CLI are not started by the platform integration compose stack.
 
 ### Python Dependencies
 
@@ -157,7 +154,10 @@ pytest integration/test_full_stack_health.py -v
 pytest integration/test_end_to_end_workflows.py -v
 
 # Error scenarios only
-pytest integration/test_cross_service_errors.py -v
+pytest integration/test_error_scenarios.py -v
+
+# Prompt Registry only
+pytest integration/test_prompt_registry.py -v
 
 # Performance tests only
 pytest integration/test_performance.py -v
@@ -203,7 +203,7 @@ Checking service availability...
 ============================================================
 ✓ API Gateway          [HEALTHY]
 ✓ Weaviate             [HEALTHY]
-✓ Ollama               [HEALTHY]
+✓ Prompt Registry      [HEALTHY]
 ============================================================
 ✓ All services are healthy. Starting tests...
 
@@ -223,8 +223,9 @@ If services are not running, you'll see:
 ❌ PREREQUISITE CHECK FAILED
 
 The following services are not available:
-  - API Gateway is not accessible at http://localhost:64536/health
+  - API Gateway is not accessible at http://localhost:5000/health
   - Weaviate is not accessible at http://localhost:8080/v1/.well-known/ready
+  - Prompt Registry is not accessible at http://localhost:8010/health
 
 Please start all required services before running integration tests.
 See tests/integration/README.md for setup instructions.
@@ -241,6 +242,7 @@ See tests/integration/README.md for setup instructions.
 | `cleanup_collection` | Function | Registers collections for automatic cleanup |
 | `wait_for_indexing` | Function | Wait helper for Weaviate indexing delays |
 | `performance_baseline` | Session | Performance threshold values |
+| `prompt_registry_url` | Session | Prompt Registry base URL |
 
 ### Example Usage
 
@@ -269,8 +271,9 @@ def test_example(api_client, unique_collection_name, cleanup_collection):
 1. Verify all services are running (check each terminal)
 2. Check service health endpoints manually:
    ```powershell
-   curl http://localhost:64536/health
+   curl http://localhost:5000/health
    curl http://localhost:8080/v1/.well-known/ready
+   curl http://localhost:8010/health
    curl http://localhost:11434/api/tags
    ```
 3. Check ports are not in use by other applications
@@ -296,10 +299,10 @@ def test_example(api_client, unique_collection_name, cleanup_collection):
 3. Manually delete test collections if needed:
    ```powershell
    # List collections
-   curl http://localhost:64536/v1/collections
+   curl http://localhost:5000/v1/collections
    
    # Delete test collections
-   curl -X DELETE http://localhost:64536/v1/collections/test_integration_xxxxx
+   curl -X DELETE http://localhost:5000/v1/collections/test_integration_xxxxx
    ```
 
 ### Performance Tests Too Slow
@@ -334,10 +337,13 @@ The test suite supports running in **CI mode without vectorizer** for faster tes
 |----------|----------|-------------|---------|
 | `VECTORIZER_ENABLED` | `false` | `true` | Controls whether vectorizer/semantic search tests run |
 | `REQUIRE_OLLAMA` | `false` | `true` | Controls whether Ollama is required |
+| `PROMPT_REGISTRY_URL` | `http://localhost:8010` | `http://localhost:8010` | Prompt Registry base URL |
+| `PROMPT_REGISTRY_ADMIN_API_KEY` | `admin-dev-key` | `admin-dev-key` | Admin key for seed/promotion tests |
+| `PROMPT_REGISTRY_SERVICE_API_KEY` | `service-dev-key` | `service-dev-key` | Service key for resolve tests |
 
 **When `VECTORIZER_ENABLED=false`:**
 - ✅ Collections are created with `vectorizer="none"` 
-- ✅ Core functionality tests run (34 tests)
+- ✅ Core functionality tests run, including Prompt Registry smoke tests
 - ⏭️ Semantic search tests are automatically skipped (6 tests)
 - ⚡ CI runs ~5 minutes faster (skips 8GB transformers model download)
 
@@ -366,6 +372,9 @@ cd tests
 pytest integration/ -v
 
 # Expected: 34 passed, 6 skipped
+#
+# Exact counts may change as new integration tests are added; semantic-search
+# tests remain skipped while VECTORIZER_ENABLED=false.
 ```
 
 ### GitHub Actions Integration
@@ -380,11 +389,15 @@ Example GitHub Actions workflow:
   run: |
     timeout 60 bash -c 'until curl -f http://localhost:5000/health; do sleep 2; done'
     timeout 60 bash -c 'until curl -f http://localhost:8080/v1/.well-known/ready; do sleep 2; done'
+    timeout 60 bash -c 'until curl -f http://localhost:8010/health; do sleep 2; done'
 
 - name: Run integration tests
   env:
     API_GATEWAY_URL: http://localhost:5000
     WEAVIATE_URL: http://localhost:8080
+    PROMPT_REGISTRY_URL: http://localhost:8010
+    PROMPT_REGISTRY_ADMIN_API_KEY: admin-dev-key
+    PROMPT_REGISTRY_SERVICE_API_KEY: service-dev-key
     REQUIRE_OLLAMA: false
     VECTORIZER_ENABLED: false
   run: |
@@ -392,7 +405,7 @@ Example GitHub Actions workflow:
     pip install -r requirements.txt
     pytest integration/ -v --html=report.html
     
-# Expected Results: 34 passed, 6 skipped
+# Expected Results: core tests pass, vectorizer-dependent tests skip
 ```
 
 See `.github/workflows/ci.yml` for the complete CI configuration.
