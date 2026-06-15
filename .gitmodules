@@ -10,3 +10,6 @@
 [submodule "web-ui"]
 	path = web-ui
 	url = https://github.com/JessKelly91/intramind-web-ui.git
+[submodule "prompt-registry"]
+	path = prompt-registry
+	url = https://github.com/JessKelly91/intramind-prompt-registry.git

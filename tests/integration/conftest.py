@@ -14,6 +14,7 @@ from .config import (
     API_GATEWAY_URL,
     WEAVIATE_URL,
     OLLAMA_URL,
+    PROMPT_REGISTRY_URL,
     REQUIRE_OLLAMA,
     SERVICE_CHECK_TIMEOUT,
     API_REQUEST_TIMEOUT
@@ -38,6 +39,7 @@ def check_services_running():
     services = {
         "API Gateway": f"{API_GATEWAY_URL}/health",
         "Weaviate": f"{WEAVIATE_URL}/v1/.well-known/ready",
+        "Prompt Registry": f"{PROMPT_REGISTRY_URL}/health",
     }
 
     if REQUIRE_OLLAMA:

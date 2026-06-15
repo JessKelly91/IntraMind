@@ -13,7 +13,8 @@ IntraMind/
 ├── vector-db-service/   # Vector database service (Python + gRPC + Weaviate)
 ├── api-gateway/         # REST API gateway (ASP.NET Core 8.0)
 ├── ai-agent/            # AI agent orchestration (LangGraph + LangChain)
-└── web-ui/              # Embeddable chat widget (Preact + FastAPI)
+├── web-ui/              # Embeddable chat widget (Preact + FastAPI)
+└── prompt-registry/     # Runtime prompt registry (FastAPI + Postgres)
 ```
 
 ```
@@ -36,6 +37,10 @@ IntraMind/
 │  AI Agent           │  LangGraph workflows
 └──────────┬──────────┘  (search + ingestion + safety)
            │ HTTP/REST
+           │        ┌─────────────────────┐
+           ├───────▶│ Prompt Registry     │  FastAPI + Postgres (port 8010)
+           │ lookup │  with code fallback │
+           │        └─────────────────────┘
            ▼
 ┌─────────────────────┐
 │  API Gateway        │  ASP.NET Core 8.0 (port 5000)
@@ -74,6 +79,10 @@ IntraMind/
   - Preact + TypeScript embeddable chat widget (~30 KB gzipped, Shadow-DOM isolated)
   - FastAPI backend that proxies to the AI Agent
   - Document upload, collection management, demo site
+- **prompt-registry**
+  - FastAPI + Postgres source of truth for versioned agent prompts
+  - `production`/`candidate` labels for promotion and rollback without redeploy
+  - Seeded from the code registry in `ai-agent`, which remains the runtime fallback
 
 ## 🛡️ Responsible AI
 
@@ -83,6 +92,7 @@ A fully free, open-source RAI stack is wired into the platform. All LLM judges a
 |---|---|---|
 | Distributed tracing | [Phoenix](https://github.com/Arize-ai/phoenix) | `phoenix` container in `docker-compose.yml`; instrumentation in `ai-agent` and `web-ui` |
 | RAG evaluations (CI) | [Ragas](https://github.com/explodinggradients/ragas) with Ollama judge | `ai-agent/tests/eval/` + `rag-evals` job in `.github/workflows/ci.yml` |
+| Prompt governance | IntraMind Prompt Registry | `prompt-registry` service; eval scores attach to prompt versions before promotion |
 | PII redaction | [Microsoft Presidio](https://github.com/microsoft/presidio) | `redact_pii` node in the ingestion workflow (redact-on-ingest, tokenized pseudonyms) |
 | Output safety | Llama Guard 3 via Ollama | `safety_check` node in the search workflow (hard-block + templated fallback) |
 | Drift monitoring | [Evidently AI](https://github.com/evidentlyai/evidently) | `ai-agent/scripts/drift_report.py` + weekly `.github/workflows/drift-report.yml` |
@@ -129,7 +139,8 @@ ollama serve
 #### 3. Start the IntraMind platform
 
 ```bash
-# Brings up Weaviate, t2v-transformers, Vector Service, API Gateway, and Phoenix
+# Brings up Weaviate, t2v-transformers, Vector Service, API Gateway, Phoenix,
+# and the Prompt Registry
 docker compose up -d
 
 # Verify all services are healthy
@@ -147,6 +158,7 @@ docker compose logs -f api-gateway
 | Vector Service (gRPC) | localhost:50052 |
 | API Gateway (REST) | http://localhost:5000 |
 | API Gateway Swagger | http://localhost:5000/swagger |
+| Prompt Registry | http://localhost:8010 |
 | Phoenix tracing UI | http://localhost:6006 |
 
 #### 4. Run the AI Agent CLI
@@ -190,6 +202,7 @@ npm run dev
 ```bash
 curl http://localhost:8080/v1/.well-known/ready    # Weaviate
 curl http://localhost:5000/health                  # API Gateway
+curl http://localhost:8010/health                  # Prompt Registry
 curl http://localhost:6006/                        # Phoenix UI
 
 cd ai-agent
@@ -233,6 +246,7 @@ See [`docs/SUBMODULE_GUIDE.md`](./docs/SUBMODULE_GUIDE.md) for the full submodul
 | Vector service | Python, gRPC, Protocol Buffers |
 | API Gateway | ASP.NET Core 8.0, Grpc.Net.Client, Serilog, FluentValidation, Swagger |
 | AI Agent | Python, LangGraph, LangChain, langchain-ollama, httpx, Click, Rich |
+| Prompt Registry | Python, FastAPI, SQLAlchemy async, Alembic, Postgres |
 | Web UI widget | Preact, TypeScript, Vite (Shadow-DOM-isolated, ~30 KB gzipped) |
 | Web UI backend | FastAPI, Uvicorn |
 | LLM providers | Ollama (router + judge + safety), Anthropic / OpenAI / Ollama (synthesis) |

@@ -92,6 +92,50 @@ services:
       retries: 5
       start_period: 10s
 
+  # ============================================
+  # Prompt Registry
+  # ============================================
+  prompt-registry-db:
+    image: postgres:16-alpine
+    container_name: intramind-prompt-registry-db-ci
+    environment:
+      - POSTGRES_DB=intramind_prompt_registry
+      - POSTGRES_USER=intramind_prompt_registry
+      - POSTGRES_PASSWORD=intramind_prompt_registry
+    networks:
+      - intramind-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U intramind_prompt_registry -d intramind_prompt_registry"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  prompt-registry:
+    image: intramind-prompt-registry:ci-latest
+    container_name: intramind-prompt-registry-ci
+    ports:
+      - "8010:8010"
+    environment:
+      - PROMPT_REGISTRY_DATABASE_URL=postgresql+asyncpg://intramind_prompt_registry:intramind_prompt_registry@prompt-registry-db:5432/intramind_prompt_registry
+      - PROMPT_REGISTRY_ADMIN_API_KEY=admin-dev-key
+      - PROMPT_REGISTRY_SERVICE_API_KEY=service-dev-key
+      - PROMPT_REGISTRY_AUTH_DEV_MODE=true
+      - PROMPT_REGISTRY_AUTO_CREATE_SCHEMA=true
+      - PROMPT_REGISTRY_AI_AGENT_SRC_PATH=/workspace/ai-agent/src
+    volumes:
+      - ./ai-agent:/workspace/ai-agent:ro
+    networks:
+      - intramind-network
+    depends_on:
+      prompt-registry-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8010/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
 networks:
   intramind-network:
     driver: bridge

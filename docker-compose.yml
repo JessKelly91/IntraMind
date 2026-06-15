@@ -124,6 +124,58 @@ services:
       start_period: 20s
 
   # ============================================
+  # Prompt Registry - Runtime Prompt Source
+  # ============================================
+  prompt-registry-db:
+    image: postgres:16-alpine
+    container_name: intramind-prompt-registry-db
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=intramind_prompt_registry
+      - POSTGRES_USER=intramind_prompt_registry
+      - POSTGRES_PASSWORD=intramind_prompt_registry
+    volumes:
+      - prompt_registry_data:/var/lib/postgresql/data
+    networks:
+      - intramind-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U intramind_prompt_registry -d intramind_prompt_registry"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  prompt-registry:
+    build:
+      context: ./prompt-registry
+      dockerfile: Dockerfile
+    container_name: intramind-prompt-registry
+    restart: unless-stopped
+    ports:
+      - "8010:8010"
+    environment:
+      - PROMPT_REGISTRY_DATABASE_URL=postgresql+asyncpg://intramind_prompt_registry:intramind_prompt_registry@prompt-registry-db:5432/intramind_prompt_registry
+      - PROMPT_REGISTRY_ADMIN_API_KEY=${PROMPT_REGISTRY_ADMIN_API_KEY:-admin-dev-key}
+      - PROMPT_REGISTRY_SERVICE_API_KEY=${PROMPT_REGISTRY_SERVICE_API_KEY:-service-dev-key}
+      - PROMPT_REGISTRY_AUTH_DEV_MODE=${PROMPT_REGISTRY_AUTH_DEV_MODE:-true}
+      - PROMPT_REGISTRY_AUTO_CREATE_SCHEMA=${PROMPT_REGISTRY_AUTO_CREATE_SCHEMA:-true}
+      - PROMPT_REGISTRY_AI_AGENT_SRC_PATH=/workspace/ai-agent/src
+    volumes:
+      - ./ai-agent:/workspace/ai-agent:ro
+    networks:
+      - intramind-network
+    depends_on:
+      prompt-registry-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8010/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ============================================
   # Gateway Layer - REST API Gateway
   # ============================================
   api-gateway:
@@ -163,6 +215,9 @@ volumes:
   phoenix_data:
     driver: local
     name: intramind_phoenix_data
+  prompt_registry_data:
+    driver: local
+    name: intramind_prompt_registry_data
 
 # ============================================
 # Networks

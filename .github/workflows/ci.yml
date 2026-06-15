@@ -196,6 +196,10 @@ jobs:
             build: true
             context: ./api-gateway
             dockerfile: ./api-gateway/src/IntraMind.ApiGateway/Dockerfile
+          - name: prompt-registry
+            build: true
+            context: ./prompt-registry
+            dockerfile: ./prompt-registry/Dockerfile
 
     steps:
       - name: Checkout code
@@ -313,6 +317,12 @@ jobs:
               intramind-api-gateway:ci-latest
           fi
 
+          # Tag prompt-registry
+          if docker images | grep -q "intramind-prompt-registry"; then
+            docker tag intramind-prompt-registry:ci-${{ github.sha }} \
+              intramind-prompt-registry:ci-latest
+          fi
+
       - name: Start services with docker-compose
         run: |
           echo "🚀 Starting services with CI-optimized configuration..."
@@ -362,6 +372,9 @@ jobs:
           # Check API Gateway
           check_health "API Gateway" "http://localhost:5000/health"
 
+          # Check Prompt Registry
+          check_health "Prompt Registry" "http://localhost:8010/health"
+
           echo "✅ All services are ready!"
 
       - name: Show service logs
@@ -386,6 +399,9 @@ jobs:
         env:
           API_GATEWAY_URL: http://localhost:5000
           WEAVIATE_URL: http://localhost:8080
+          PROMPT_REGISTRY_URL: http://localhost:8010
+          PROMPT_REGISTRY_ADMIN_API_KEY: admin-dev-key
+          PROMPT_REGISTRY_SERVICE_API_KEY: service-dev-key
           REQUIRE_OLLAMA: false
           VECTORIZER_ENABLED: false
         run: |
@@ -499,12 +515,16 @@ jobs:
           done
           docker tag intramind-vector-service:ci-${{ github.sha }} intramind-vector-service:ci-latest || true
           docker tag intramind-api-gateway:ci-${{ github.sha }} intramind-api-gateway:ci-latest || true
+          docker tag intramind-prompt-registry:ci-${{ github.sha }} intramind-prompt-registry:ci-latest || true
 
       - name: Start platform services (CI compose)
         run: |
           docker compose -f docker-compose.ci.yml up -d
-          # Wait for Weaviate + API Gateway to be healthy
-          for url in "http://localhost:8080/v1/.well-known/ready" "http://localhost:5000/health"; do
+          # Wait for Weaviate + API Gateway + Prompt Registry to be healthy
+          for url in \
+            "http://localhost:8080/v1/.well-known/ready" \
+            "http://localhost:5000/health" \
+            "http://localhost:8010/health"; do
             for i in {1..30}; do
               if curl -fsS "$url" > /dev/null; then
                 echo "Service ready: $url"
@@ -513,6 +533,8 @@ jobs:
               sleep 5
             done
           done
+          curl -fsS -X POST http://localhost:8010/api/v1/admin/seed \
+            -H "X-API-Key: admin-dev-key"
 
       - name: Install ai-agent dependencies
         working-directory: ai-agent
@@ -534,6 +556,9 @@ jobs:
           # ANTHROPIC_API_KEY / OPENAI_API_KEY intentionally unset - judge runs on Ollama.
           PRIMARY_LLM_PROVIDER: ollama
           ROUTER_LLM_PROVIDER: ollama
+          PROMPT_REGISTRY_URL: http://localhost:8010
+          PROMPT_REGISTRY_API_KEY: service-dev-key
+          PROMPT_REGISTRY_LABEL: production
         run: |
           set +e
           python -m tests.eval.ragas_eval --collection eval_corpus --seed --judge-model "$RAGAS_JUDGE_MODEL"
