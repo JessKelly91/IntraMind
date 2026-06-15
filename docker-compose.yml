@@ -58,7 +58,9 @@ services:
     networks:
       - intramind-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/.well-known/ready"]
+      # The transformers image is Python-based and ships no wget/curl, so probe
+      # the readiness endpoint with urllib instead (urlopen raises -> nonzero).
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/.well-known/ready')"]
       interval: 10s
       timeout: 5s
       retries: 5
