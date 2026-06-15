@@ -1,8 +1,11 @@
 # Drift Reports
 
-Auto-generated weekly by `.github/workflows/drift-report.yml`.
+Auto-generated weekly by `.github/workflows/drift-report.yml`. 
+Each report compares a reference window (older ingested content) 
+against a current window (newer ingested content) using Evidently AI.
 
-Each report compares a reference window (older ingested content) against a
-current window (newer ingested content) using [Evidently AI](https://github.com/evidentlyai/evidently).
+_Latest:_ [2026-06-15.html](./2026-06-15.html)
 
-The first report will appear here after the first scheduled run.
+## All reports
+
+- [2026-06-15.html](./2026-06-15.html)
