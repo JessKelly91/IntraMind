@@ -253,7 +253,7 @@ See [`docs/SUBMODULE_GUIDE.md`](./docs/SUBMODULE_GUIDE.md) for the full submodul
 - [x] **Phase 7** — Responsible AI (Phoenix tracing, Ragas evals, Presidio PII redaction, Llama Guard safety, Evidently drift, model + dataset cards)
 
 ### Up next
-- [ ] Authentication & multi-tenancy hardening of the web-ui backend
+- [x] **Authentication & multi-tenancy hardening of the web-ui backend** — API-key auth, per-tenant collection namespacing, in-memory rate limiting, and hardened CORS
 - [ ] Retrieval quality optimization (currently measured by Ragas; improvements to be driven by the metrics)
 - [ ] Flip the Ragas threshold gate from warning-only to enforcing once a baseline is established
 - [ ] User acceptance testing on a real corpus
