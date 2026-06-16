@@ -39,9 +39,12 @@ question-answer corpora. See the official Hugging Face model card.
 
 ## Performance
 
-- `context_precision` and `context_recall` from the Ragas eval job are
-  the most direct signals of retrieval quality and therefore embedder
-  performance.
+- `hit_at_1`, `hit_at_3`, and `mrr` from the Ragas eval harness are
+  deterministic source-level retrieval signals based on the golden
+  Q&A `expected_source` field.
+- `context_precision` and `context_recall` from Ragas remain useful
+  LLM-judged retrieval-quality signals, but they are treated as
+  complementary to deterministic source metrics.
 - The Evidently drift report (Step 5) tracks score-distribution drift on
   a fixed probe set as a leading indicator of corpus drift relative to
   the embedder.

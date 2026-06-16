@@ -66,7 +66,7 @@ Every chunk stored in Weaviate carries this provenance metadata
 | Consent basis | `fixture` |
 | Retention class | `permanent` |
 | PII status | None |
-| Used by | Ragas eval driver and threshold tests |
+| Used by | Ragas eval driver, threshold tests, and deterministic retrieval metrics (`hit_at_1`, `hit_at_3`, `mrr`) |
 
 ### User-ingested documents
 
