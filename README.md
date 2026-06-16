@@ -326,9 +326,9 @@ Every PR gets a warning-only RAG-quality report (faithfulness, answer relevancy,
 - **[GitHub Workflows](./.github/WORKFLOWS.md)** — CI/CD pipeline documentation
 - **[CI Compose Configuration](./docker-compose.ci.yml)** — Optimized CI environment
 
-### Project Management
-- **[Production Improvements](./docs/PRODUCTION_IMPROVEMENTS.md)** — NuGet package implementation
-- **[NuGet Implementation](./docs/NUGET_IMPLEMENTATION.md)** — Contract packaging details
+### Project Status
+- **[Retrieval Quality Plan](./.cursor/plans/retrieval_quality_de038677.plan.md)** — Current RAG quality work and remaining optimization phases
+- **[Prompt Registry Platform Plan](./.cursor/plans/prompt_registry_platform_6b8d567c.plan.md)** — Prompt governance platform status
 
 ### Service-Specific Documentation
 - [Vector DB Service](./vector-db-service/README.md)

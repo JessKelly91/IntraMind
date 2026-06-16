@@ -967,7 +967,7 @@ fi
 - **User Guide**: [USER_GUIDE.md](./USER_GUIDE.md)
 - **Submodule Management**: [SUBMODULE_GUIDE.md](./SUBMODULE_GUIDE.md)
 - **Docker Setup Guide**: [DOCKER_SETUP.md](./DOCKER_SETUP.md)
-- **NuGet Implementation**: [NUGET_IMPLEMENTATION.md](./NUGET_IMPLEMENTATION.md)
+- **GitHub Workflows**: [../.github/WORKFLOWS.md](../.github/WORKFLOWS.md)
 
 ---
 
